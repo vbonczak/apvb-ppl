@@ -27,6 +27,7 @@ rule read =
   | "then" { THEN }
   | "else" { ELSE }
   | "end" { END }
+  | ";" { END_LINE }
   | "sample" {PPL_SAMPLE}
   | "assume" {PPL_ASSUME}
   | "infer" {PPL_INFER}

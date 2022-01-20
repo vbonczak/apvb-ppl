@@ -11,6 +11,7 @@ type proba =
   | Sample
 
 type expr =
+  | Seq of expr * expr
   | Var of string
   | Int of int
   | Bool of bool

@@ -19,12 +19,16 @@ open Ast
 %token IF
 %token THEN
 %token ELSE
-%token END
+
 %token PPL_SAMPLE
 %token PPL_ASSUME
 %token PPL_INFER
 %token PPL_OBSERVE
 %token PPL_FACTOR
+
+%token END_LINE
+
+%token END
 %token EOF
 
 %nonassoc IN
@@ -32,6 +36,7 @@ open Ast
 %left LEQ
 %left PLUS
 %left TIMES
+%left END_LINE
 
 %start <Ast.expr> prog
 
@@ -50,13 +55,13 @@ expr:
   | e1 = expr; TIMES; e2 = expr { Binop (Mult, e1, e2) }
   | e1 = expr; PLUS; e2 = expr { Binop (Add, e1, e2) }
   | LET; x = ID; EQUALS; e1 = expr; IN; e2 = expr { Let (x, e1, e2) }
-  | IF; e1 = expr; THEN; e2 = expr; ELSE; e3 = expr { If (e1, e2, e3) }
+  | IF; e1 = expr; THEN; e2 = expr; ELSE; e3 = expr; { If (e1, e2, e3) }
   | FUN; fun_var = ID; TO; fun_body = expr; END { Fun (fun_var, fun_body) }
   | LPAREN; e=expr; RPAREN {e}
-  | PPL_SAMPLE; e = expr;END { Proba (Sample, e) }
-  | PPL_ASSUME; e = expr;END { Proba (Assume, e) }
-  | PPL_INFER; e= expr;END { Proba (Infer, e) }
-  | PPL_OBSERVE; e= expr;END { Proba (Observe, e) }
-  | PPL_FACTOR; e= expr;END { Proba (Factor, e) }
+  | PPL_SAMPLE; e = expr { Proba (Sample, e) }
+  | PPL_ASSUME; e = expr { Proba (Assume, e) }
+  | PPL_INFER; e = expr { Proba (Infer, e) }
+  | PPL_OBSERVE; e = expr { Proba (Observe, e) }
+  | PPL_FACTOR; e = expr { Proba (Factor, e) }
+  | e = expr; END_LINE; e2 = expr {Seq (e, e2) }
   ;
-
