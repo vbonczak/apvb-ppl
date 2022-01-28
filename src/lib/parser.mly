@@ -58,10 +58,10 @@ expr:
   | IF; e1 = expr; THEN; e2 = expr; ELSE; e3 = expr; { If (e1, e2, e3) }
   | FUN; fun_var = ID; TO; fun_body = expr; END { Fun (fun_var, fun_body) }
   | LPAREN; e=expr; RPAREN {e}
-  | PPL_SAMPLE; e = expr { Proba (Sample, e) }
-  | PPL_ASSUME; e = expr { Proba (Assume, e) }
-  | PPL_INFER; e = expr { Proba (Infer, e) }
-  | PPL_OBSERVE; e = expr { Proba (Observe, e) }
-  | PPL_FACTOR; e = expr { Proba (Factor, e) }
+  | PPL_SAMPLE; e = expr  ; END_LINE { Proba (Sample, e) }
+  | PPL_ASSUME; e = expr  ; END_LINE{ Proba (Assume, e) }
+  | PPL_INFER; e = expr; END_LINE { Proba (Infer, e) }
+  | PPL_OBSERVE; e = expr; END_LINE { Proba (Observe, e) }
+  | PPL_FACTOR; e = expr ; END_LINE{ Proba (Factor, e) }
   | e = expr; END_LINE; e2 = expr {Seq (e, e2) }
   ;

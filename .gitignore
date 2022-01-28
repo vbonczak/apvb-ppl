@@ -1,2 +1,5 @@
 *~
+src/lib/_build/*
 _build/*
+.vs/*
+*.opam
