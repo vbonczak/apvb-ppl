@@ -9,6 +9,10 @@ open Ast
 %token LEQ
 %token TIMES
 %token PLUS
+
+%token PIPE
+%token LBRACKET
+%token RBRACKET
 %token LPAREN
 %token RPAREN
 %token LET
@@ -59,9 +63,10 @@ expr:
   | FUN; fun_var = ID; TO; fun_body = expr; END { Fun (fun_var, fun_body) }
   | LPAREN; e=expr; RPAREN {e}
   | PPL_SAMPLE; e = expr  ; END_LINE { Proba (Sample, e) }
-  | PPL_ASSUME; e = expr  ; END_LINE{ Proba (Assume, e) }
+  | PPL_ASSUME; e = expr  ; END_LINE { Proba (Assume, e) }
   | PPL_INFER; e = expr; END_LINE { Proba (Infer, e) }
-  | PPL_OBSERVE; e = expr; END_LINE { Proba (Observe, e) }
+  | PPL_OBSERVE; LBRACKET; e1 = expr; PIPE; e2 = expr; RBRACKET ; END_LINE  { Observe (e1, e2) }
   | PPL_FACTOR; e = expr ; END_LINE{ Proba (Factor, e) }
   | e = expr; END_LINE; e2 = expr {Seq (e, e2) }
+  | error { failwith ("PANIC PARSER"^string_of_int($symbolstartpos.pos_lnum )) }
   ;
