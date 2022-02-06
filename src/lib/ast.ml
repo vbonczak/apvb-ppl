@@ -9,14 +9,12 @@ type proba =
   | Factor
   | Sample
 
-type expr =
-  | Seq of expr * expr
+type expr = 
   | Var of string
-  | Int of int
-  | Bool of bool
-  | Binop of bop * expr * expr
-  | Let of string * expr * expr
-  | If of expr * expr * expr
-  | Fun of string * expr
+  | Int of int 
+  | Dist of string * expr
   | Proba of proba * expr
   | Observe of expr * expr
+  | Seq of expr * expr
+  | StdCaml of string * expr
+  | Nop

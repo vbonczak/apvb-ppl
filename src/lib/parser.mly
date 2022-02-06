@@ -2,27 +2,21 @@
 open Ast
 %}
 
+%start <expr> prog
+
 %token <int> INT
 %token <string> ID
-%token TRUE
-%token FALSE
-%token LEQ
-%token TIMES
-%token PLUS
+%token <string> CAML
 
+(*%token BEGIN_CAML
+%token END_CAML*)
+
+%token DIST
 %token PIPE
 %token LBRACKET
 %token RBRACKET
-%token LPAREN
-%token RPAREN
-%token LET
-%token FUN
-%token TO
 %token EQUALS
-%token IN
-%token IF
-%token THEN
-%token ELSE
+%token EOL
 
 %token PPL_SAMPLE
 %token PPL_ASSUME
@@ -30,43 +24,32 @@ open Ast
 %token PPL_OBSERVE
 %token PPL_FACTOR
 
-%token END_LINE
-
-%token END
+ 
+ 
 %token EOF
-
-%nonassoc IN
-%nonassoc ELSE
-%left LEQ
-%left PLUS
-%left TIMES
-%left END_LINE
-
-%start <Ast.expr> prog
+%left EOL
 
 %%
-
 prog:
-  | e = expr; EOF { e }
+  | e = statement; EOF { e }
   ;
-  
+statement:
+  | e = expr; EOL; e2 = statement { Seq (e, e2) }
+  | e = expr ; EOL { e }
+  | EOL ; e = expr { e }
+  | EOL { Nop }
 expr:
   | i = INT { Int i }
   | x = ID { Var x }
-  | TRUE { Bool true }
-  | FALSE { Bool false }
-  | e1 = expr; LEQ; e2 = expr { Binop (Leq, e1, e2) }
-  | e1 = expr; TIMES; e2 = expr { Binop (Mult, e1, e2) }
-  | e1 = expr; PLUS; e2 = expr { Binop (Add, e1, e2) }
-  | LET; x = ID; EQUALS; e1 = expr; IN; e2 = expr { Let (x, e1, e2) }
-  | IF; e1 = expr; THEN; e2 = expr; ELSE; e3 = expr; { If (e1, e2, e3) }
-  | FUN; fun_var = ID; TO; fun_body = expr; END { Fun (fun_var, fun_body) }
-  | LPAREN; e=expr; RPAREN {e}
-  | PPL_SAMPLE; e = expr  ; END_LINE { Proba (Sample, e) }
-  | PPL_ASSUME; e = expr  ; END_LINE { Proba (Assume, e) }
-  | PPL_INFER; e = expr; END_LINE { Proba (Infer, e) }
-  | PPL_OBSERVE; LBRACKET; e1 = expr; PIPE; e2 = expr; RBRACKET ; END_LINE  { Observe (e1, e2) }
-  | PPL_FACTOR; e = expr ; END_LINE{ Proba (Factor, e) }
-  | e = expr; END_LINE; e2 = expr {Seq (e, e2) }
-  | error { failwith ("PANIC PARSER"^string_of_int($symbolstartpos.pos_lnum )) }
+  | DIST; x = ID; EQUALS; e1 = expr { Dist (x, e1) }
+  | PPL_SAMPLE; e = expr   { Proba (Sample, e) }
+  | PPL_ASSUME; e = expr   { Proba (Assume, e) }
+  | PPL_INFER; e = expr { Proba (Infer, e) }
+  | PPL_OBSERVE; LBRACKET; e1 = expr;PIPE;e2 = expr; RBRACKET { Observe (e1, e2) }
+  | PPL_FACTOR; e = expr { Proba (Factor, e) }
+  | s1 = CAML; s2 = expr { StdCaml(s1, s2) }
   ;
+(*expr:
+  | v = CAML; EOL; e = expr { StdCaml(v, e) }
+  ;*)
+

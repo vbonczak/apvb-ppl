@@ -25,25 +25,37 @@ let print_ast out e =
   let rec print_ast_indent out c e =
     print_indent out c;
     match e with
-    |Seq(e1, e2) -> print_ast_indent out (c+1) e1; print_ret out; print_ast_indent out (c+1) e2;print_ret out;
     |Var(s) -> print out s
     |Int(i) -> print_int out i
-    |Bool(b) -> print out @@ if b then "true" else "false"
-    |Binop(op, e1, e2) -> print out (match op with
-      |Add -> "+"
-      |Mult -> "*"
-      |Leq -> "<="); print_ast_indent out  (c+1) e1; print_ast_indent out (c+1) e2
-    |Let(s, e, body) -> print out ("Soit " ^ s ^ " :=\n"); print_ast_indent out c e; print_ast_indent out (c+1) body
-    |If(e, e1, e2) -> print out "Si ("; print_ast_indent out 0 e; print out ") Alors :"; print_ast_indent out  (c+1) e1; print out "Sinon :"; print_ast_indent out  (c+1) e2; 
-    |Fun(s, body) -> print out ("Fonction "^s^" -> \n"); print_ast_indent out (c+1) body; print_ret out;
+    |Dist(s, e) -> print out ("Soit la distribution " ^ s ^ " :=\n"); print_ast_indent out c e;
+    |StdCaml(s, e) -> print out ("Code OCaml :\n"^s^"\n");print_ast_indent out c e;
     |Proba(_, e) -> print out "Construction proba sur :\n";print_ast_indent out (c+1) e;
+    |Seq(e1,e2) -> print out "SEQ"; print_ast_indent out c e1; print_ret out; print_ast_indent out c e2;
     |Observe(e1, e2) -> print out "Construction proba Observe sur :\n";print_ast_indent out (c+1) e1;print out "\net\n";print_ast_indent out (c+1) e2;
+    |Nop -> ()
   in
   print_ast_indent out 0 e
 
 let fff e =
   print_ast !output e
     
-let ffff _ =
-  print_ast !output @@ parse_channel !input
+let ss =
+  if Array.length  Sys.argv > 1 then
+  begin
+    let file = Sys.argv.(1) in
+    (*print_ast !output @@ parse_channel !input*)
+    let ic = open_in file in
+    try 
+      print_ast !output @@ parse_channel ic
+        (*let line = input_line ic in
+          print_endline line;      
+          flush !output;            
+          close_in ic      *)        
+    with e ->                    
+        close_in_noerr ic;        
+        raise e    
+      
+    
+  end else
+    print !output "File pls\n"
     
