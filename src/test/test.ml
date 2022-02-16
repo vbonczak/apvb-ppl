@@ -35,6 +35,12 @@ let print_ast out e =
     |Proba(_, e) -> print out "Construction proba sur :\n";print_ast_indent out (c+1) e;
     |Seq(e1,e2) -> print out "SEQ"; print_ast_indent out c e1; print_ret out; print_ast_indent out c e2;
     |Observe(e1, e2) -> print out "Construction proba Observe sur :\n";print_ast_indent out (c+1) e1;print out "\net\n";print_ast_indent out (c+1) e2;
+    |Method(m) -> print out @@ "Nous utilisons ci-dessous la méthode '"^m^"'"
+    |Print(t, s) -> (
+      match t with 
+      |Distrib -> print out @@ "Visualisation de la distribution"^s;print_ret out
+      |Text -> printf "Affichage de \"%s\"\n" s
+    )
     |Nop -> ()
   in
   print_ast_indent out 0 e
@@ -63,7 +69,7 @@ let () =
         (*close_in_noerr ic;        *)
         raise e    
   end
-  else  printf "Please enter a destination file to compile to. Usage: <OUTPUT> [<INPUT>]"
+  else  printf "Please enter a destination file to compile to.\nUsage: %s <OUTPUT> [<INPUT>]" executable_name
   ;;  
     
   

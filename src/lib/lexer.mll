@@ -44,6 +44,7 @@ rule read =
   | "infer" {PPL_INFER}
   | "observe" {PPL_OBSERVE}
   | "factor" {PPL_FACTOR}
+  | "method" {PPL_METHOD}
   | id { ID (Lexing.lexeme lexbuf) }
   | int { INT (int_of_string (Lexing.lexeme lexbuf)) }
   | eof { EOF } 

@@ -23,7 +23,7 @@ open Ast
 %token PPL_INFER
 %token PPL_OBSERVE
 %token PPL_FACTOR
-
+%token PPL_METHOD
  
  
 %token EOF
@@ -45,6 +45,7 @@ expr:
   | PPL_INFER; e = expr { Proba (Infer, e) }
   | PPL_OBSERVE; LBRACKET; e1 = expr;PIPE;e2 = expr; RBRACKET { Observe (e1, e2) }
   | PPL_FACTOR; e = expr { Proba (Factor, e) }
+  | PPL_METHOD; s = ID { Method(s) }
   | i = INT { Int i }
   | x = ID { Var x }
   | s1 = CAML { StdCaml(s1) }

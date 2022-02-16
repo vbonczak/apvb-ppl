@@ -9,6 +9,10 @@
   | Factor
   | Sample
 
+type printable =
+  | Distrib
+  | Text
+
 type expr = 
   | Var of string
   | Int of int 
@@ -16,5 +20,7 @@ type expr =
   | Proba of proba * expr
   | Observe of expr * expr
   | Seq of expr * expr
+  | Method of string
   | StdCaml of string
+  | Print of printable * string (*Sortie de la distribution spécifiée par son nom, ou alors juste une chaîne*)
   | Nop
