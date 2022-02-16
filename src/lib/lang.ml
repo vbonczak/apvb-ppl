@@ -105,6 +105,7 @@ let precompile (e:expr) out =
   in
   let ic = open_in "templates/general.mlt" in
   let s = really_input_string ic (in_channel_length ic) in
+  close_in ic;
   fprintf out "%s\n(*Fin de la partie d'entête*)\n" s;
   prodcode out e
 ;;
@@ -131,10 +132,5 @@ let compile path =
     match Sys.command cmd with
     |0 -> printf "Sortie : %s (dépendant de %s)\n" exefile deps
     |n -> printf "Erreur %d\n" n;
-    
-  
-  (*  *)
 ;;
- 
-  (* Sys.command "ocamlfind ocamlc -o test.out -linkpkg %s test.ml" *)
 
