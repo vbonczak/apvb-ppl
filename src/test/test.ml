@@ -1,7 +1,10 @@
 open Interp
 open Lang
 open Ast
-    
+open Sys
+open Array
+open Printf
+
 let input = ref stdin
 let output = ref stdout
     
@@ -25,10 +28,10 @@ let print_ast out e =
   let rec print_ast_indent out c e =
     print_indent out c;
     match e with
-    |Var(s) -> print out s
-    |Int(i) -> print_int out i
+    |Var(s) -> print out "Var";print out s
+    |Int(i) -> print out "Int"; print_int out i
     |Dist(s, e) -> print out ("Soit la distribution " ^ s ^ " :=\n"); print_ast_indent out c e;
-    |StdCaml(s, e) -> print out ("Code OCaml :\n"^s^"\n");print_ast_indent out c e;
+    |StdCaml(s) -> print out ("Code OCaml :\n"^s^"\n")
     |Proba(_, e) -> print out "Construction proba sur :\n";print_ast_indent out (c+1) e;
     |Seq(e1,e2) -> print out "SEQ"; print_ast_indent out c e1; print_ret out; print_ast_indent out c e2;
     |Observe(e1, e2) -> print out "Construction proba Observe sur :\n";print_ast_indent out (c+1) e1;print out "\net\n";print_ast_indent out (c+1) e2;
@@ -38,24 +41,30 @@ let print_ast out e =
 
 let fff e =
   print_ast !output e
-    
-let ss =
-  if Array.length  Sys.argv > 1 then
-  begin
-    let file = Sys.argv.(1) in
+;;
+
+let () =
+ 
+ 
     (*print_ast !output @@ parse_channel !input*)
-    let ic = open_in file in
+    
+  if length argv > 1 then begin
+    output:=open_out argv.(1);
     try 
-      print_ast !output @@ parse_channel ic
+      if length argv > 2 then  input:=open_in argv.(2);
+      (*print_ast !output @@ parse_channel ic*)
+      precompile test_funny_bern_ast !output;
+      compile argv.(1)
         (*let line = input_line ic in
           print_endline line;      
           flush !output;            
           close_in ic      *)        
     with e ->                    
-        close_in_noerr ic;        
+        (*close_in_noerr ic;        *)
         raise e    
-      
+  end
+  else  printf "Please enter a destination file to compile to. Usage: <OUTPUT> [<INPUT>]"
+  ;;  
     
-  end else
-    print !output "File pls\n"
+  
     

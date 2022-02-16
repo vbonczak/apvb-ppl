@@ -30,7 +30,6 @@ let int = '-'? digit+
 let letter = ['a'-'z' 'A'-'Z']
 let id = (letter) (letter|digit|'_')*
 
-
 rule read =
   parse
     white { read lexbuf }

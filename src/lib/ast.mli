@@ -1,9 +1,9 @@
-type bop =
+(*type bop =
   | Add
   | Mult
-  | Leq
+  | Leq*)
 
-type proba =
+  type proba =
   | Assume
   | Infer
   | Factor
@@ -16,5 +16,5 @@ type expr =
   | Proba of proba * expr
   | Observe of expr * expr
   | Seq of expr * expr
-  | StdCaml of string * expr
+  | StdCaml of string
   | Nop

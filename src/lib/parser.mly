@@ -39,15 +39,15 @@ statement:
   | EOL ; e = expr { e }
   | EOL { Nop }
 expr:
-  | i = INT { Int i }
-  | x = ID { Var x }
   | DIST; x = ID; EQUALS; e1 = expr { Dist (x, e1) }
   | PPL_SAMPLE; e = expr   { Proba (Sample, e) }
   | PPL_ASSUME; e = expr   { Proba (Assume, e) }
   | PPL_INFER; e = expr { Proba (Infer, e) }
   | PPL_OBSERVE; LBRACKET; e1 = expr;PIPE;e2 = expr; RBRACKET { Observe (e1, e2) }
   | PPL_FACTOR; e = expr { Proba (Factor, e) }
-  | s1 = CAML; s2 = expr { StdCaml(s1, s2) }
+  | i = INT { Int i }
+  | x = ID { Var x }
+  | s1 = CAML { StdCaml(s1) }
   ;
 (*expr:
   | v = CAML; EOL; e = expr { StdCaml(v, e) }
