@@ -10,7 +10,8 @@ open Ast
 
 (*%token BEGIN_CAML
 %token END_CAML*)
-
+%token LET
+%token IN
 %token DIST
 %token PIPE
 %token LBRACKET
@@ -31,14 +32,16 @@ open Ast
 
 %%
 prog:
-  | e = statement; EOF { e }
+  | xs = statements; EOF { ast_of_list xs }
   ;
+statements:
+  | e = statement ; EOL ; t = list(statement) { e::t }
 statement:
-  | e = expr; EOL; e2 = statement { Seq (e, e2) }
-  | e = expr ; EOL { e }
-  | EOL ; e = expr { e }
+  | e = expr; EOL { e }
   | EOL { Nop }
 expr:
+  | LET; x = ID; EQUALS; e = expr; IN { Let (x, [], e) }
+  | LET; x = ID; l = args; EQUALS; e = expr { Let (x, l, e) }
   | DIST; x = ID; EQUALS; e1 = expr { Dist (x, e1) }
   | PPL_SAMPLE; e = expr   { Proba (Sample, e) }
   | PPL_ASSUME; e = expr   { Proba (Assume, e) }
@@ -50,6 +53,10 @@ expr:
   | x = ID { Var x }
   | s1 = CAML { StdCaml(s1) }
   ;
+args:
+  |h=arg; t = list(arg) { h::t }
+arg:
+  |x = ID { Var(x) }
 (*expr:
   | v = CAML; EOL; e = expr { StdCaml(v, e) }
   ;*)

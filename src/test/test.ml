@@ -30,6 +30,9 @@ let print_ast out e =
     match e with
     |Var(s) -> print out "Var";print out s
     |Int(i) -> print out "Int"; print_int out i
+    |Let(x,l,e) -> printf "fonction %s params(%s)" x (List.fold_left (fun a b -> (match b with 
+            |Var(x)-> x
+            |_-> "autre que var?")^a) "" l) ;print_ast_indent out (c+1) e;
     |Dist(s, e) -> print out ("Soit la distribution " ^ s ^ " :=\n"); print_ast_indent out c e;
     |StdCaml(s) -> print out ("Code OCaml :\n"^s^"\n")
     |Proba(_, e) -> print out "Construction proba sur :\n";print_ast_indent out (c+1) e;
@@ -50,15 +53,19 @@ let fff e =
 ;;
 
 let () =
- 
+  
  
     (*print_ast !output @@ parse_channel !input*)
     
   if length argv > 1 then begin
-    output:=open_out argv.(1);
+  input:=open_in argv.(1);
     try 
-      if length argv > 2 then  input:=open_in argv.(2);
-      (*print_ast !output @@ parse_channel ic*)
+      if length argv > 2 then output:=open_out argv.(2);
+      (* let s = really_input_string !input (in_channel_length !input) in *)
+      (* fprintf !output "ce fichier={%s}" s; *)
+      close_in !input ;
+      (* print_ast !output @@ parse_string s *)
+      (*print_ast !output @@ parse_channel ic  <--- menhir a du mal avec la channel*)
       precompile test_funny_bern_ast !output;
       compile argv.(1)
         (*let line = input_line ic in
@@ -69,7 +76,7 @@ let () =
         (*close_in_noerr ic;        *)
         raise e    
   end
-  else  printf "Please enter a destination file to compile to.\nUsage: %s <OUTPUT> [<INPUT>]" executable_name
+  else  printf "Please enter an input file to compile.\nUsage: %s <INPUT> [<OUTPUT>]" executable_name
   ;;  
     
   
