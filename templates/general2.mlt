@@ -1,3 +1,6 @@
+
+open Array
+
 type 'a support = { values : 'a array;
                     logits : float array;
                     probs : float array;
@@ -18,7 +21,7 @@ let bernoulli p =
                  logits = Array.map log probs;
                  probs = probs}
   in
-  let sample () = if Random.float 1 <= p then 1 else 0 in
+  let sample () = if Random.float 1. <= p then 1 else 0 in
   let logpdf x = assert(x = 0 || x = 1); support.logits.(x) in
   let exp () = p in
   let var () = p *. (1. -. p) in
@@ -33,12 +36,12 @@ let bernoulli p =
 
 let rec pow_int a n = match n with
   |0 -> 1
-  |_ -> a * (pow a (n-1))
+  |_ -> a * (pow_int a (n-1))
 ;;
 
 let rec pow_float a n = match n with
-  |0 -> 1
-  |_ -> a *. (pow a (n-1))
+  |0 -> 1.
+  |_ -> a *. (pow_float a (n-1))
 ;;
 
 let binomial p n =
@@ -57,9 +60,9 @@ let binomial p n =
                  probs = probs;
                 } in
   let sample () = Array.init n
-                    (fun _ -> if Random.float 1 <= p then 1 else 0)
+                    (fun _ -> if Random.float 1. <= p then 1 else 0)
   in
-  let logpdf x = assert(x.length = n);
+  let logpdf x = assert(length x = n);
                  Array.iter (fun y -> assert(y = 0 || y = 1)) x;
                  let k = Array.fold_left (+) 0 x in
                  log ((pow_float p k) *. (pow_float (1. -. p) (n-k)))
@@ -77,10 +80,10 @@ let binomial p n =
 
 let uniform a b =
   assert(a < b);
-  let sample () = a +. Random.float (b-a) in
-  let logpdf x = if (a <= x && x <= b) then 1 /. (b -. a) else 0. in
-  let exp () = (a +. b) /. 2 in
-  let var () = (pow_float (b -. a) 2) /. 12 in
+  let sample () = a +. Random.float (b-.a) in
+  let logpdf x = if (a <= x && x <= b) then 1. /. (b -. a) else 0. in
+  let exp () = (a +. b) /. 2. in
+  let var () = (pow_float (b -. a) 2) /. 12. in
   let d = {support = None;
            sample = sample;
            logpdf = logpdf;

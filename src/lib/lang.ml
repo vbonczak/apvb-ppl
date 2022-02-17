@@ -60,7 +60,7 @@ let gen_assume = function
 ;;
 
 let gen_infer = function
-| StdCaml(s) -> "infer "^s
+| StdCaml(s) -> "uniform 0 1 (*infer "^s^"*)"
 | _ -> "(*Infer invalide*)"
 ;;
 
@@ -103,7 +103,7 @@ let precompile (e:expr) out =
   |Print(t, s) ->  print out @@ (snippet_print_gen t s) ^ "\n"
   |Nop -> print_ret out
   in
-  let ic = open_in "templates/general.mlt" in
+  let ic = open_in "templates/general2.mlt" in
   let s = really_input_string ic (in_channel_length ic) in
   close_in ic;
   fprintf out "%s\n(*Fin de la partie d'entête*)\n" s;
