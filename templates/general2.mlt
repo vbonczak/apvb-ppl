@@ -1,0 +1,102 @@
+type 'a support = { values : 'a array;
+                    logits : float array;
+                    probs : float array;
+                  }
+
+type 'a dist = { support : 'a support option;
+                 sample : unit -> 'a;
+                 logpdf : 'a -> float;
+                 exp : (unit -> float) option;
+                 var : (unit -> float) option;
+               }
+
+let bernoulli p =
+  assert(0. <= p && p <= 1.);
+  let values = [|0; 1|] in
+  let probs = [|1. -. p; p|] in
+  let support = {values = values;
+                 logits = Array.map log probs;
+                 probs = probs}
+  in
+  let sample () = if Random.float 1 <= p then 1 else 0 in
+  let logpdf x = assert(x = 0 || x = 1); support.logits.(x) in
+  let exp () = p in
+  let var () = p *. (1. -. p) in
+  let d = {support = Some support;
+           sample = sample;
+           logpdf = logpdf;
+           exp = Some exp;
+           var = Some var;
+          } in
+  d
+;;
+
+let rec pow_int a n = match n with
+  |0 -> 1
+  |_ -> a * (pow a (n-1))
+;;
+
+let rec pow_float a n = match n with
+  |0 -> 1
+  |_ -> a *. (pow a (n-1))
+;;
+
+let binomial p n =
+  assert(0. <= p && p <= 1. && n >= 0);
+  let values = Array.init (pow_int 2 n)
+                 (fun i -> Array.init n (fun j -> i mod (pow_int 2 j)))
+  in
+  (* Each element is an array containing a sequence of ones and zeroes, each element is the binary representation of the current index. *)
+  let probs = Array.init (pow_int 2 n)
+                (fun i ->
+                  let k = Array.fold_left (+) 0 (values.(i)) in
+                  (pow_float p k) *. (pow_float (1. -. p) (n-k)))
+  in
+  let support = {values = values;
+                 logits = Array.map log probs;
+                 probs = probs;
+                } in
+  let sample () = Array.init n
+                    (fun _ -> if Random.float 1 <= p then 1 else 0)
+  in
+  let logpdf x = assert(x.length = n);
+                 Array.iter (fun y -> assert(y = 0 || y = 1)) x;
+                 let k = Array.fold_left (+) 0 x in
+                 log ((pow_float p k) *. (pow_float (1. -. p) (n-k)))
+  in
+  let exp () = float_of_int n *. p in
+  let var () = float_of_int n *. p *. (1. -. p) in
+  let d = {support = Some support;
+           sample = sample;
+           logpdf = logpdf;
+           exp = Some exp;
+           var = Some var;
+          } in
+  d
+;;
+
+let uniform a b =
+  assert(a < b);
+  let sample () = a +. Random.float (b-a) in
+  let logpdf x = if (a <= x && x <= b) then 1 /. (b -. a) else 0. in
+  let exp () = (a +. b) /. 2 in
+  let var () = (pow_float (b -. a) 2) /. 12 in
+  let d = {support = None;
+           sample = sample;
+           logpdf = logpdf;
+           exp = Some exp;
+           var = Some var;
+          } in
+  d
+;;
+
+  
+  
+  
+
+  
+                 
+               
+
+
+                 
