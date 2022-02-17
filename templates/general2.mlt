@@ -94,7 +94,7 @@ let uniform a b =
 ;;
 
 let rec remove x q = match q with (* This function returns q with occurences of x removed and the number of such values removed. *)
-  |[] -> 0., []
+  |[] -> [], 0.
   |y::q when y=x -> let l, occs = remove x q in l, occs +. 1.
   |y::q -> let l, occs = remove x q in y::l, occs
 ;;
@@ -104,10 +104,12 @@ let rec regroup l n = match l with (* Returns two lists l1 and l2, l1 gives the 
   |x:: q ->
     begin
       let l, occs = remove x q in
-      let values, occurences = regroup l in
+      let values, occurences = regroup l n in
       x::values, (occs /. n)::occurences
     end
 ;;
+
+exception Reject;;
 
 let infer n f = (* Version for finite support and rejection sampling. *)
   assert(n > 0);
@@ -115,7 +117,7 @@ let infer n f = (* Version for finite support and rejection sampling. *)
   |0 -> []
   |n -> try f()::(aux (n-1)) with Reject -> aux n
   in
-  let vals, proportions = regroup (aux n) n in
+  let vals, proportions = regroup (aux n) (float_of_int n) in
   let values = Array.of_list vals in
   let probs = Array.of_list proportions in
   let support = {values = values;
@@ -127,7 +129,7 @@ let infer n f = (* Version for finite support and rejection sampling. *)
     let p = Random.float 1. in (* Assume we split the interval [0,1] into length(prob) intervals, with interval i having length prob.(i). We then generate a random float between 0 and 1 and see which interval it falls in to generate a random value according to prob. *)
     let i = ref 0 in
     let x = ref 0. in
-    while p > x + support.probs.(!i) do x := !x +. support.probs.(!i); incr i; done;
+    while p > !x +. support.probs.(!i) do x := !x +. support.probs.(!i); incr i; done;
     support.values.(!i)
   in
   let logpdf x =
