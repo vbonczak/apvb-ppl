@@ -38,6 +38,8 @@ rule read =
   | "[" { LBRACKET }
   | "]" { RBRACKET }
   | "=" { EQUALS }
+  | "let" { LET }
+  | "in" { LET }
   | "dist" { DIST }
   | "sample" {PPL_SAMPLE}
   | "assume" {PPL_ASSUME}

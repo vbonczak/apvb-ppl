@@ -15,11 +15,6 @@ let parse_channel (c : in_channel) : expr =
   ast
 ;;
 
-let rec ast_of_list = function
-|[] -> Nop
-|t::q -> Seq(t, ast_of_list q)
-;;
-
 let print out =
   Printf.fprintf out "%s"
 ;;
@@ -94,6 +89,16 @@ let precompile (e:expr) out =
   let rec prodcode out = function
   |Var(_) -> ()
   |Int(_) -> ()
+  |Let(x,l,e) -> fprintf out "let %s %s = " x (List.fold_left (
+    fun a b -> (match b with 
+                |Var(x)-> x
+                |_-> "NON!"
+              )^a
+            ) "" l) ;
+    prodcode out e; 
+    (match l with
+    |[] -> print out "in\n"
+    |_ -> print out "\n;;\n")
   |Dist(s, e) -> fprintf out "let %s = " s; prodcode out e; print out "in\n"
   |StdCaml(s) -> fprintf out "%s\n" s
   |Proba(p, e) ->  fprintf out "%s\n" @@ gen_prob_cstr e p 
@@ -103,6 +108,7 @@ let precompile (e:expr) out =
   |Print(t, s) ->  print out @@ (snippet_print_gen t s) ^ "\n"
   |Nop -> print_ret out
   in
+
   let ic = open_in "templates/general2.mlt" in
   let s = really_input_string ic (in_channel_length ic) in
   close_in ic;
