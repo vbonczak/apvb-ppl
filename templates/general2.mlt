@@ -115,6 +115,8 @@ exception Reject;;
 
 let assume bool = if not bool then raise Reject else ();;
 
+let observe d x = assume (d.sample() = x);;
+
 let infer n f = (* Version for finite support and rejection sampling. *)
   assert(n > 0);
   let rec aux n = match n with
@@ -144,6 +146,13 @@ let infer n f = (* Version for finite support and rejection sampling. *)
     in
     assert(bool);
     support.logits.(index) in
+  (*let exp = try Some( fun () ->
+      let m = ref 0. in
+      for i=0 to Array.length values-1 do
+        m := !m +. values.(i) *. probs.(i)
+      done;
+      !m)
+      with _ -> None in*)
   let d = {support = Some support;
            sample = sample;
            logpdf = logpdf;
