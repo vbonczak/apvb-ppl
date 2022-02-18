@@ -26,16 +26,16 @@ let test_funny_bern_ast : expr =
   ast_of_list [
     Method("Rejection");
   (*avec des retours direct dans la chaîne pour l'instant*)
-    StdCaml("let funny_bernoulli prob () = ");
+    StdCaml("let funny_bernoulli () = ");
     StdCaml("let a = "); 
-    Proba(Sample, StdCaml("(bernoulli ~p:0.5) in"));
-    StdCaml("let b = "); Proba(Sample, StdCaml("(bernoulli ~p:0.5) in"));
-    StdCaml("let c = "); Proba(Sample, StdCaml("(bernoulli ~p:0.5) in"));
+    Proba(Sample, StdCaml("(bernoulli 0.5) in"));
+    StdCaml("let b = "); Proba(Sample, StdCaml("(bernoulli 0.5) in"));
+    StdCaml("let c = "); Proba(Sample, StdCaml("(bernoulli 0.5) in"));
   Proba(Assume, StdCaml("a = 1 || b = 1"));
   StdCaml("a+b+c");
-  StdCaml("let _ =");
+  StdCaml("let _ =\nRandom.self_init();");
   Print(Text, "@.-- Funny Bernoulli, Basic Rejection Sampling --@.");
-  Dist("d", Proba(Infer, StdCaml("funny_bernoulli ()")));
+  Dist("d", Proba(Infer, StdCaml("funny_bernoulli")));
   Print(Distrib, "d")
   ]    ;;
 
@@ -50,12 +50,12 @@ let module_of_infer_method = function
 
 
 let gen_assume = function
-| StdCaml(s) -> "assume prob ("^s^");"
+| StdCaml(s) -> "assume ("^s^");"
 | _ -> "(*Assume invalide*)"
 ;;
 
 let gen_infer = function
-| StdCaml(s) -> "uniform 0 1 (*infer "^s^"*)"
+| StdCaml(s) -> "infer 10000 "^s
 | _ -> "(*Infer invalide*)"
 ;;
 
@@ -65,7 +65,7 @@ let gen_factor = function
 ;;
 
 let gen_sample = function
-| StdCaml(s) -> "sample prob "^s
+| StdCaml(s) -> "sample "^s
 | _ -> "(*Sample invalide*)"
 ;;
 
@@ -79,7 +79,7 @@ let gen_prob_cstr expr = function
 
 let snippet_print_gen t s =
   match t with
-  |Distrib -> sprintf "let { values; probs; _ } = get_support ~shrink:true %s in
+  |Distrib -> sprintf "let { values; probs; _ } = Option.get %s.support in
 Array.iteri (fun i x -> Format.printf \"%%d %%f@.\" x probs.(i)) values;" s
   |Text -> sprintf "Format.printf \"%s\";" s
 ;;

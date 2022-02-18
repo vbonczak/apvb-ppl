@@ -1,7 +1,5 @@
 
-open Array;
-
-Random.self_init();
+open Array
 
 type 'a support = { values : 'a array;
                     logits : float array;
@@ -111,6 +109,8 @@ let rec regroup l n = match l with (* Returns two lists l1 and l2, l1 gives the 
     end
 ;;
 
+module Rejection_sampling = struct
+
 exception Reject;;
 
 let assume bool = if not bool then raise Reject else ();;
@@ -151,7 +151,11 @@ let infer n f = (* Version for finite support and rejection sampling. *)
            var = None;
           } in
   d
-  
+;;
+
+let sample d = d.sample();;
+
+end
   
 
   
