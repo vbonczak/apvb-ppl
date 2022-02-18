@@ -1,5 +1,7 @@
 
-open Array
+open Array;
+
+Random.self_init();
 
 type 'a support = { values : 'a array;
                     logits : float array;
@@ -101,21 +103,23 @@ let rec remove x q = match q with (* This function returns q with occurences of 
 
 let rec regroup l n = match l with (* Returns two lists l1 and l2, l1 gives the elements of l without repetition and l2 gives the corresponding proportion of occurences of each element in l. *)
   |[] -> [],[]
-  |x:: q ->
+  |x:: _ ->
     begin
-      let l, occs = remove x q in
-      let values, occurences = regroup l n in
+      let l', occs = remove x l in
+      let values, occurences = regroup l' n in
       x::values, (occs /. n)::occurences
     end
 ;;
 
 exception Reject;;
 
+let assume bool = if not bool then raise Reject else ();;
+
 let infer n f = (* Version for finite support and rejection sampling. *)
   assert(n > 0);
   let rec aux n = match n with
   |0 -> []
-  |n -> try f()::(aux (n-1)) with Reject -> aux n
+  |n -> try let x=f() in x::(aux (n-1)) with Reject -> aux n
   in
   let vals, proportions = regroup (aux n) (float_of_int n) in
   let values = Array.of_list vals in
