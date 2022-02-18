@@ -165,8 +165,87 @@ let infer n f = (* Version for finite support and rejection sampling. *)
 let sample d = d.sample();;
 
 end
-  
 
+exception DifferentSize
+
+let rec remove_with_score x q scores = match q, scores with (* This function returns q with occurences of x removed, scores with scores corresponding to x removed, and the total score of elements x in q. *)
+  |[], [] -> [], [], 0.
+  |[], _ |_, [] -> raise DifferentSize
+  |y::q, score::s when y=x -> let l1, l2, total_score = remove_with_score x q s in l1, l2, score +. total_score
+  |y::q, score::s -> let l1, l2, total_score = remove_with_score x q s in y::l1, score::l2, total_score
+;;
+
+let rec regroup_with_score (values, exp_scores) = match values with (* Returns two lists l1 and l2, l1 gives the elements of values without repetition and l2 gives the total score of each element in l. The scores are now assumed to be no longer in logarithmic form since we need to compute the sum. *)
+  |[] -> [],[]
+  |x:: _ ->
+    begin
+      let l1, l2, total_score = remove_with_score x values exp_scores in
+      let values, scores = regroup_with_score (l1, l2) in
+      x::values, total_score::scores
+    end
+;;
+  
+module Importance_sampling = struct
+
+  exception ZeroScore
+  
+  let sample d = d.sample();;
+
+  let factor score s = score := !score +. s;;
+
+  let observe score d x = score := !score +. (d.logpdf x);;
+
+  let assume score bool = if not bool then score := neg_infinity;;
+
+  let infer n model obs =
+    assert(n > 0);
+    let rec aux n = match n with
+      |0 -> [],[]
+      |n -> let score = ref 0. in
+            let x = model score obs in
+            let l1, l2 = aux (n-1) in
+            x::l1, (exp !score)::l2 (* Once the calculations done with log probabilities, we return to regular probabilities to regroup scores for the same values. *) 
+    in
+    let vals, scores = regroup_with_score (aux n) in
+    let rec sum_scores scores = match scores with
+      |[] -> 0.
+      |x::q -> x +. (sum_scores q)
+    in
+    let total_score = sum_scores scores in
+    if total_score = 0. then raise ZeroScore;
+    let values = Array.of_list vals in
+    let probs = Array.of_list (List.map (fun x -> x /. total_score) scores) in
+    let support = {values = values;
+                   logits = Array.map log probs;
+                   probs = probs}
+    in
+  
+    let sample () =
+      let p = Random.float 1. in (* Assume we split the interval [0,1] into length(prob) intervals, with interval i having length prob.(i). We then generate a random float between 0 and 1 and see which interval it falls in to generate a random value according to prob. *)
+      let i = ref 0 in
+      let x = ref 0. in
+      while p > !x +. support.probs.(!i) do x := !x +. support.probs.(!i); incr i; done;
+      support.values.(!i)
+    in
+    let logpdf x =
+      let index, bool = Array.fold_left
+                          (fun (i,b) y -> if b || y = x then (i,true) else (i+1,b))
+                          (0,false)
+                          values
+      in
+      assert(bool);
+      support.logits.(index) in
+    let d = {support = Some support;
+             sample = sample;
+             logpdf = logpdf;
+             exp = None;
+             var = None;
+            } in
+    d
+  ;;
+               
+end
+                               
   
                  
                
