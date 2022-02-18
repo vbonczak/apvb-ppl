@@ -39,7 +39,7 @@ let test_funny_bern_ast : expr =
   Print(Distrib, "d")
   ]    ;;
 
-let dependencies = ["owl"];;
+let dependencies = [];;
 
 let module_of_infer_method = function
 |"Rejection" -> "Rejection_sampling"
@@ -133,10 +133,12 @@ let compile path =
     close_out och;
     (*Compilation du fichier créé juste avant*)
     let exefile = base_name^".out" in
-    let cmd = sprintf  "ocamlfind ocamlc -o \"%s\" -package %s -linkpkg \"%s\"" exefile deps mlfile in
+    let cmd = sprintf  "ocamlfind ocamlc -o \"%s\" %s \"%s\"" exefile (match length deps with
+                                                                      |0 -> ""
+                                                                      |_ -> sprintf "-package %s -linkpkg" deps
+                                                                      )                                         mlfile in
     printf "$ > %s" cmd;
     match Sys.command cmd with
     |0 -> printf "Sortie : %s (dépendant de %s)\n" exefile deps
     |n -> printf "Erreur %d\n" n;
 ;;
-
