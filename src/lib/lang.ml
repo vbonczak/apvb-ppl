@@ -117,28 +117,27 @@ let precompile (e:expr) out =
 ;;
 
 let compile path =
+  let base_name_end =  (try rindex path '.' with Not_found -> length path) in
+  let base_name = sub path 0 base_name_end in 
+  (*Précompilation de notre langage dans le fichier truc.mlppl vers truc.ml*)
+  let mlfile = base_name ^ ".ml" in   
   (*Les dépendances sous la forme attendue par ocamlc à savoir dep1,dep2,...*)
   let deps = List.fold_left (fun a b -> (if length a > 0 then (a ^ ",") else "") ^ b) "" dependencies in
-  
-  let base_name_end =  (try rindex path '.'
-                       with Not_found -> length path) in
-  let base_name = sub path 0 base_name_end in 
-  let mlfile = base_name ^ ".ml" in
   (*let ich = open_in path in*)
-    let ast = (* parse_channel ich*) test_funny_bern_ast in
-    (*close_in ich*)
-    let och = open_out mlfile in
-    precompile ast och;
-    printf "Fichier %s précompilé dans %s\n" path mlfile;
-    close_out och;
-    (*Compilation du fichier créé juste avant*)
-    let exefile = base_name^".out" in
-    let cmd = sprintf  "ocamlfind ocamlc -o \"%s\" %s \"%s\"" exefile (match length deps with
-                                                                      |0 -> ""
-                                                                      |_ -> sprintf "-package %s -linkpkg" deps
-                                                                      )                                         mlfile in
-    printf "$ > %s" cmd;
-    match Sys.command cmd with
-    |0 -> printf "Sortie : %s (dépendant de %s)\n" exefile deps
-    |n -> printf "Erreur %d\n" n;
+  let ast = (* parse_channel ich*) test_funny_bern_ast in
+  (*close_in ich*)
+  let och = open_out mlfile in
+  precompile ast och;
+  printf "Fichier %s précompilé dans %s\n" path mlfile;
+  close_out och;
+  (*Compilation du fichier créé juste avant*)
+  let exefile = base_name^".out" in
+  let cmd = sprintf  "ocamlfind ocamlc -o \"%s\" %s \"%s\"" exefile (match length deps with
+                                                                    |0 -> ""
+                                                                    |_ -> sprintf "-package %s -linkpkg" deps
+                                                                    )                                         mlfile in
+  printf "$ > %s" cmd;
+  match Sys.command cmd with
+  |0 -> printf "Sortie : %s (dépendant de %s)\n" exefile deps
+  |n -> printf "Erreur %d\n" n;
 ;;

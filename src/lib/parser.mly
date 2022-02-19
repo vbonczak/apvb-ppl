@@ -29,32 +29,27 @@ open Ast
  
 %token EOF
 %left EOL
+%left LET
 
 %%
 prog:
-  | xs = statements; EOF { ast_of_list xs }
+  | xs =  list(statement) EOF { ast_of_list xs }
   ;
-statements:
-  | e = statement ; EOL ; t = list(statement) { e::t }
 statement:
-  | e = expr; EOL { e }
-  | EOL { Nop }
+  | e = expr EOL+ { e } 
 expr:
-  | LET; x = ID; EQUALS; e = expr; IN { Let (x, [], e) }
-  | LET; x = ID; l = args; EQUALS; e = expr { Let (x, l, e) }
-  | DIST; x = ID; EQUALS; e1 = expr { Dist (x, e1) }
-  | PPL_SAMPLE; e = expr   { Proba (Sample, e) }
-  | PPL_ASSUME; e = expr   { Proba (Assume, e) }
-  | PPL_INFER; e = expr { Proba (Infer, e) }
-  | PPL_OBSERVE; LBRACKET; e1 = expr;PIPE;e2 = expr; RBRACKET { Observe (e1, e2) }
-  | PPL_FACTOR; e = expr { Proba (Factor, e) }
-  | PPL_METHOD; s = ID { Method(s) }
+  | LET x = ID l = list(arg) EQUALS e = expr IN { Let (x, l, e) } 
+  | DIST x = ID EQUALS e1 = expr { Dist (x, e1) }
+  | PPL_SAMPLE e = expr   { Proba (Sample, e) }
+  | PPL_ASSUME e = expr   { Proba (Assume, e) }
+  | PPL_INFER e = expr { Proba (Infer, e) }
+  | PPL_OBSERVE LBRACKET e1 = expr PIPE e2 = expr; RBRACKET { Observe (e1, e2) }
+  | PPL_FACTOR e = expr { Proba (Factor, e) }
+  | PPL_METHOD s = ID { Method(s) }
   | i = INT { Int i }
   | x = ID { Var x }
   | s1 = CAML { StdCaml(s1) }
   ;
-args:
-  |h=arg; t = list(arg) { h::t }
 arg:
   |x = ID { Var(x) }
 (*expr:

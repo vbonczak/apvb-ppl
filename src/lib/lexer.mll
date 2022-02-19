@@ -32,14 +32,14 @@ let id = (letter) (letter|digit|'_')*
 
 rule read =
   parse
-    white { read lexbuf }
+    white+ { read lexbuf }
   | newline { (*incr_loc lexbuf 0;*) EOL }
   | "|" { PIPE } 
   | "[" { LBRACKET }
   | "]" { RBRACKET }
   | "=" { EQUALS }
   | "let" { LET }
-  | "in" { LET }
+  | "in" { IN }
   | "dist" { DIST }
   | "sample" {PPL_SAMPLE}
   | "assume" {PPL_ASSUME}
