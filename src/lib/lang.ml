@@ -99,10 +99,12 @@ let precompile (e:expr) out =
     (match l with
     |[] -> print out "in\n"
     |_ -> print out "\n;;\n")
+  |If(e,v,f) -> print out "if "; prodcode out e; print out "then begin\n";prodcode out v;
+                print out "\n end\n else begin\n"; prodcode out f;print out "\nend\n"
   |Dist(s, e) -> fprintf out "let %s = " s; prodcode out e; print out "in\n"
   |StdCaml(s) -> fprintf out "%s\n" s
   |Proba(p, e) ->  fprintf out "%s\n" @@ gen_prob_cstr e p 
-  |Seq(e1,e2) -> prodcode out e1;print_ret out; prodcode out e2
+  |Seq(e1,e2) -> prodcode out e1;print out ";\n"; prodcode out e2
   |Observe(e1, e2) -> print out "\n(*OBSERVE";  prodcode out e1; prodcode out e2; print out "*)\n"
   |Method(m) -> fprintf out "open %s\n"  (module_of_infer_method m)
   |Print(t, s) ->  print out @@ (snippet_print_gen t s) ^ "\n"

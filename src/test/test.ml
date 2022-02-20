@@ -11,7 +11,7 @@ let basename s =
   try String.sub s 0 (String.rindex s '.')
   with Not_found -> s
 
-let usage () =printf "Please enter an input file to compile.\nUsage: %s <INPUT>" executable_name
+let usage () = printf "Please enter an input file to compile.\nUsage: %s <INPUT>" executable_name
 
 let () =
   if length argv > 1 then begin

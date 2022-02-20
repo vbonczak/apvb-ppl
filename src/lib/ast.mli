@@ -1,7 +1,3 @@
-(*type bop =
-  | Add
-  | Mult
-  | Leq*)
 
   type proba =
   | Assume
@@ -18,6 +14,7 @@ type expr =
   | Int of int 
   | Dist of string * expr
   | Let of string * expr list * expr  (*id, arguments, contenu*)
+  | If of expr * expr * expr
   | Proba of proba * expr
   | Observe of expr * expr
   | Seq of expr * expr

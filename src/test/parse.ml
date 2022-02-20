@@ -30,9 +30,15 @@ let print_ast out e =
     match e with
     |Var(s) -> print out "Var";print out s
     |Int(i) -> print out "Int"; print_int out i
-    |Let(x,l,e) -> printf "fonction %s params(%s)" x (List.fold_left (fun a b -> (match b with 
-            |Var(x)-> x
-            |_-> "autre que var?")^a) "" l) ;print_ast_indent out (c+1) e;
+    |Let(x,l,e) -> 
+                                  (match l with
+                                  |[] -> printf "let %s =" x
+                                  |_ -> printf  "fonction %s params(%s) = {" x (List.fold_left (fun a b -> (match b with 
+                                  |Var(x)-> x^" "
+                                  |_-> "autre que var?")^a) "" l));
+    print_ast_indent out (c+1) e; print out "}\n"
+    |If(e,v,f) -> print out "IF";print_ast_indent out (c+1) e;
+    print out "ALORS";print_ast_indent out (c+1) v;print out "SINON";print_ast_indent out (c+1) f;
     |Dist(s, e) -> print out ("Soit la distribution " ^ s ^ " :=\n"); print_ast_indent out c e;
     |StdCaml(s) -> print out ("Code OCaml :\n"^s^"\n")
     |Proba(_, e) -> print out "Construction proba sur :\n";print_ast_indent out (c+1) e;

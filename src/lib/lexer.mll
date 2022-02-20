@@ -24,7 +24,7 @@ let incr_loc lexbuf delta =
 }
 
 let white = [' ' '\t']+
-let newline = ['\n' '\r' ]
+let newline = ['\n' '\r']
 let digit = ['0'-'9']
 let int = '-'? digit+
 let letter = ['a'-'z' 'A'-'Z']
@@ -35,11 +35,17 @@ rule read =
     white+ { read lexbuf }
   | newline { (*incr_loc lexbuf 0;*) EOL }
   | "|" { PIPE } 
-  | "[" { LBRACKET }
-  | "]" { RBRACKET }
+  | "(" { LEFTPAR }
+  | ")" { RIGHTPAR }
+  | ";" { SEMICOLON }
   | "=" { EQUALS }
   | "let" { LET }
   | "in" { IN }
+  | "if" { IF }
+  | "then" { THEN }
+  | "begin" { BEGIN }
+  | "end" { END }
+  | "else" { ELSE }
   | "dist" { DIST }
   | "sample" {PPL_SAMPLE}
   | "assume" {PPL_ASSUME}
