@@ -1,9 +1,21 @@
-(*type bop =
-  | Add
-  | Mult
-  | Leq*)
+type bop =
+| Add
+| Sub
+| Mult
+| Div 
+| AddF
+| SubF
+| MultF
+| DivF
 
-  type proba =
+ 
+
+type cond =
+  | LT
+  | Leq
+  | Eq
+
+type proba =
   | Assume
   | Infer
   | Factor
@@ -16,7 +28,12 @@ type printable =
 type expr = 
   | Var of string
   | Int of int 
+  | Real of float
+  | Liste of expr list
+  | Binop of bop * expr * expr
+  | Cond of cond * expr * expr
   | Dist of string * expr
+  | App of expr * expr
   | Let of string * expr list * expr  (*id, arguments, contenu*)
   | If of expr * expr * expr
   | Proba of proba * expr

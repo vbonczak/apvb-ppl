@@ -87,8 +87,13 @@ Array.iteri (fun i x -> Format.printf \"%%d %%f@.\" x probs.(i)) values;" s
 (* Production d'un fichier OCaml à partir de notre langage *)
 let precompile (e:expr) out = 
   let rec prodcode out = function
-  |Var(_) -> ()
-  |Int(_) -> ()
+  |Var(v) -> print out v
+  |Int(i) -> fprintf out "%d" i
+  |Real(i) -> fprintf out "%f" i
+  |Liste(l) -> print out "["; List.iter (fun e -> prodcode out e; print out "; ") l; print out "]"
+  |App(a,b) -> prodcode out a; print out "("; prodcode out b;print out ")";
+  |Binop(op, e1, e2) -> manage_binop out e1 e2 op
+  |Cond(c, e1, e2) -> manage_condition out e1 e2 c
   |Let(x,l,e) -> fprintf out "let %s %s = " x (List.fold_left (
     fun a b -> (match b with 
                 |Var(x)-> x
@@ -109,6 +114,21 @@ let precompile (e:expr) out =
   |Method(m) -> fprintf out "open %s\n"  (module_of_infer_method m)
   |Print(t, s) ->  print out @@ (snippet_print_gen t s) ^ "\n"
   |Nop -> print_ret out
+  and manage_condition out e1 e2 c =   prodcode out e1; (match c with
+  | LT  -> print out " < " 
+  | Leq -> print out " <= " 
+  | Eq  -> print out " = ")
+    ; prodcode out e2
+  and manage_binop out e1 e2 c =   prodcode out e1; (match c with
+  | Add -> print out " + " 
+  | Sub -> print out " - " 
+  | Mult -> print out " * "
+  |  Div  ->  print out " / "
+  | AddF -> print out " +. " 
+  | SubF -> print out " -. " 
+  | MultF -> print out " *. "
+  |  DivF  ->  print out " /. ")
+    ; prodcode out e2
   in
 
   let ic = open_in "templates/general2.mlt" in

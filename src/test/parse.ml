@@ -30,10 +30,12 @@ let print_ast out e =
     match e with
     |Var(s) -> print out "Var";print out s
     |Int(i) -> print out "Int"; print_int out i
+    |Real(i) -> print out "Int"; fprintf  out "Réel : %f" i
+    |Liste(l) -> print out "Liste : \n";List.iter (fun e -> print_ast_indent out c e;print_ret out) l;
     |Let(x,l,e) -> 
                                   (match l with
-                                  |[] -> printf "let %s =" x
-                                  |_ -> printf  "fonction %s params(%s) = {" x (List.fold_left (fun a b -> (match b with 
+                                  |[] -> fprintf out "let %s =" x
+                                  |_ -> fprintf out "fonction %s params(%s) = {" x (List.fold_left (fun a b -> (match b with 
                                   |Var(x)-> x^" "
                                   |_-> "autre que var?")^a) "" l));
     print_ast_indent out (c+1) e; print out "}\n"
@@ -48,9 +50,24 @@ let print_ast out e =
     |Print(t, s) -> (
       match t with 
       |Distrib -> print out @@ "Visualisation de la distribution"^s;print_ret out
-      |Text -> printf "Affichage de \"%s\"\n" s
+      |Text -> fprintf out "Affichage de \"%s\"\n" s
     )
-    |Nop -> printf "Nop"
+    |Nop -> fprintf out "Nop"
+    |Binop(op,a,b) -> print_ast_indent out (c+1) a;(match op with
+                      | Add -> print out " + " 
+                      | Sub -> print out " - " 
+                      | Mult -> print out " * "
+                      |  Div  ->  print out " / "
+                      | AddF -> print out " +. " 
+                      | SubF -> print out " -. " 
+                      | MultF -> print out " *. "
+                      |  DivF  ->  print out " /. ");print_ret out; print_ast_indent out (c+1) b;
+    |Cond(op, a, b) -> print_ast_indent out (c+1) a;(match op with
+    | LT -> print out " < " 
+    | Leq -> print out " <= " 
+    | Eq -> print out " = ");
+    print_ret out; print_ast_indent out (c+1) b;
+    |App(a,b) -> print out "App("; print_ast_indent out (c+1) a;print out "\n appliqué à \n";print_ast_indent out (c+1) b;
   in
   print_ast_indent out 0 e
 

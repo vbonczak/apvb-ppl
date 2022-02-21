@@ -24,11 +24,12 @@ let incr_loc lexbuf delta =
 }
 
 let white = [' ' '\t']+
-let newline = ['\n' '\r']
+let newline = ['\n' '\r' ';']
 let digit = ['0'-'9']
 let int = '-'? digit+
+let real = '-'? digit+'.'digit*
 let letter = ['a'-'z' 'A'-'Z']
-let id = (letter) (letter|digit|'_')*
+let id = (letter) (letter|digit|'_'|'.')*
 
 rule read =
   parse
@@ -37,8 +38,25 @@ rule read =
   | "|" { PIPE } 
   | "(" { LEFTPAR }
   | ")" { RIGHTPAR }
+  | "[" { LEFTBR }
+  | "]" { RIGHTBR }
   | ";" { SEMICOLON }
+  | "<=" { OPLEQ }
+  | "=>" { OPGEQ }
+  | "<" { OPLT }
+  | ">" { OPGT }
   | "=" { EQUALS }
+
+  | "+." { OPFPLUS }
+  | "+" { OPPLUS }
+  | "-" { OPMOINS }
+  | "-." { OPFMOINS }
+
+  | "*." { OPFMULT }
+  | "*" { OPMULT }
+  | "/." { OPFDIV }
+  | "/" { OPDIV }
+
   | "let" { LET }
   | "in" { IN }
   | "if" { IF }
@@ -55,6 +73,7 @@ rule read =
   | "method" {PPL_METHOD}
   | id { ID (Lexing.lexeme lexbuf) }
   | int { INT (int_of_string (Lexing.lexeme lexbuf)) }
+  | real { REAL (float_of_string (Lexing.lexeme lexbuf)) }
   | eof { EOF } 
   | _ { CAML (Lexing.lexeme lexbuf) }
   
