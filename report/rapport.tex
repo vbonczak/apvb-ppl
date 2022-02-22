@@ -1,10 +1,34 @@
-\documentclass{article}
+\documentclass[svgnames]{article}
 
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage[french]{babel}
+\usepackage[a4paper,margin=1in]{geometry}
 
-\usepackage{vincent}
+\usepackage{vincent} 
+\usepackage{listings}
+
+\lstset{
+basicstyle=\ttfamily,
+keywords = [1]{method},
+keywords=[2]{let,dist, if, then, else},
+keywords=[3]{sample, infer,observe, print, factor},
+otherkeywords={% Operators
+    |, ->, !,^
+  },
+sensitive=true,  
+morecomment=[s]{(*}{*)}, 
+keepspaces=true,
+morestring=[b]",
+keywordstyle=[2]\color{blue},
+keywordstyle=[3]\color{DarkRed},
+keywordstyle=\color{violet},
+stringstyle=\color{DarkGreen},
+tabsize=4,
+showspaces=false,
+breaklines=true
+}
+ 
 
 \begin{document}
 
@@ -18,8 +42,40 @@
 
 \section{Travail réalisé}
 
+Nous avons implémenté le projet sous la forme d'un compilateur d'un langage simple vers l'OCaml, compilé avec une bibliothèque de fonctions d'inférence.
+Ce langage s'inspire de Caml pour les appels et les instructions de contrôle, en le simplifiant. Par exemple le programme suivant peut être utilisé pour compiler l'exemple \verb|funny_bernoulli| vu en cours :
+\begin{lstlisting}
+method Rejection
 
+let funny_bernoulli  () =  
+ let a = sample (bernoulli 0.5)  
+ let b = sample (bernoulli 0.5)  
+ let c = sample (bernoulli 0.5) 
+assume (a=1||b=1)
+a+b+c
 
+let _ = 
+print ".-- Funny Bernoulli, Basic Rejection Sampling --."
+dist d = infer funny_bernoulli  
+print d
+\end{lstlisting}
 
+\bigskip
 
+Plusieurs constructions probabilistes comme \verb|assume| ou \verb|infer| sont supportées, ainsi qu'une fonction d'affichage rapide de résultats \verb|print|.
+
+Nous avons opté pour un langage à parser pour pouvoir faire du typage et de l'analyse statique (par manque de temps nous n'avons implémenté que le typage simple,
+l'analyse statique s'étant révélée chronophage à développer).
+
+\section{Métropolis}
+
+1066 Hastings
+
+\section{La simulation}
+
+La balle
+
+\section{Conclusion}
+
+Difficultés rencontrées, retour général sur le cours...
 \end{document}

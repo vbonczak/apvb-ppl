@@ -4,3 +4,9 @@
 *.opam
 tests/*
 *#*
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.pdf

@@ -112,7 +112,7 @@ let precompile (e:expr) out =
   and  gen_prob_cstr expr p= 
   (match p with
     | Assume -> print out "assume ("  
-    | Infer -> print out "infer  ("  
+    | Infer -> print out "infer 10000 ("  
     | Factor -> print out "factor ("
     | Sample -> print out "sample ("
     ); prodcode out expr;  print out ");"
