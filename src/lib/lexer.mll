@@ -27,7 +27,7 @@ let digit = ['0'-'9']
 let int = '-'? digit+
 let real = '-'? digit+'.'digit*
 let letter = ['a'-'z' 'A'-'Z']
-let id = (letter|'_'|'!') (letter|digit|'_'|'.'|'!')*
+let id = (letter|'_'|'!') (  (letter|digit|'_'|'.')+ (letter|digit|'_'|'!') | (letter|digit|'_')*   )
 
 
 rule read =
@@ -38,6 +38,7 @@ rule read =
   | "&&" { OPAND } 
   | "|" { PIPE } 
   | "()" {UNIT}
+  | ":=" { ASSIGN }
   | "(" { LEFTPAR }
   | ")" { RIGHTPAR }
   | "[" { LEFTBR }
@@ -49,7 +50,7 @@ rule read =
   | "<" { OPLT }
   | ">" { OPGT }
   | "=" { EQUALS }
-
+  | "." { POINT }
   | "+." { OPFPLUS }
   | "+" { OPPLUS }
   | "-." { OPFMOINS }
@@ -64,11 +65,12 @@ rule read =
   | "in" { IN }
   | "if" { IF }
 
+
   | "for"{FOR}
   | "to"{TO}
   | "do"{DO}
   | "done"{DONE}
-  
+
   | "print" {PRINT}
   | "endif" { ENDIF }
   | "then" { THEN }

@@ -30,8 +30,10 @@ type printable =
 type expr = 
   | Var of string
   | Int of int 
+  | Arr of string * expr
   | Real of float
   | Unit
+  | Assign of expr * expr (*Var ou Arr, et valeur*)
   | Liste of expr list
   | For of string * expr * expr * expr (*id, début, fin, corps de la boucle*)
   | Binop of bop * expr * expr
@@ -47,6 +49,7 @@ type expr =
   | String of string
   | Print of printable * string (*Sortie de la distribution spécifiée par son nom, ou alors juste une chaîne*)
   | Nop
+ 
 
 let rec ast_of_list = function
   |[] -> Nop

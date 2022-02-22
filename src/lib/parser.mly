@@ -12,12 +12,14 @@ open Ast
 %token EOL
 %token SEMICOLON
 %token COLON
+%token POINT
 
 %token LET
 %token IN
 %token DIST
 %token PIPE
- 
+
+
 %token OPLEQ
 %token OPGEQ
 %token OPLT
@@ -36,6 +38,7 @@ open Ast
 %token OPDIV
 %token OPMULT
 
+%token ASSIGN
 %token EQUALS
 
 %token FOR
@@ -56,7 +59,7 @@ open Ast
 %token PPL_OBSERVE
 %token PPL_FACTOR
 %token PPL_METHOD
- %token PRINT
+%token PRINT
  
 
 
@@ -65,18 +68,19 @@ open Ast
 %token LEFTBR
 %token RIGHTBR
 
- %token UNIT
+%token UNIT
 
 %token EOF
 
- %nonassoc SEMICOLON
+%nonassoc SEMICOLON
 
-%nonassoc LEFTBR   LEFTPAR  
+%nonassoc LEFTBR   LEFTPAR   POINT
 %nonassoc UNIT
 
 %nonassoc IF
- %nonassoc FOR 
- 
+%nonassoc FOR 
+
+%nonassoc ASSIGN
 %left EQUALS
 
 %left OPGEQ OPGT OPLEQ OPLT 
@@ -88,8 +92,8 @@ open Ast
 %right OPOR
 %right OPAND
 
-
 %%
+
 prog:
   | xs =  list(statement) EOF { ast_of_list xs }
   ;
@@ -103,6 +107,7 @@ expr:
   | LEFTBR l = separated_list(SEMICOLON, listel) RIGHTBR { Liste(l) }
   | e = expr e2 = expr {App(e,e2)}
   | LEFTPAR e = expr RIGHTPAR { e }
+  | d = destination ASSIGN e = expr { Assign(d,e) }
   | e = condition { e }
   | e1 = expr op = binop e2 = expr { Binop(op, e1, e2) }
   | BEGIN xs = list(seq) END { ast_of_list xs }
@@ -115,6 +120,7 @@ expr:
   | PPL_METHOD s = ID  EOL { Method(s) }
   | PRINT e = printable  { e }
   | UNIT { Unit }
+  | x = ID POINT LEFTPAR e = expr RIGHTPAR { Arr(x, e) }
   | i = INT { Int i }
   | f = REAL { Real f }
   | x = ID { Var x }
@@ -122,6 +128,9 @@ expr:
 printable:
   | s = STRING l = list(listel) { App( Print(Text, s), List.fold_right (fun elem acc -> App(elem,acc)) l Nop) } 
   | x = ID { Print(Distrib, x) }
+destination:(*type lvalue*)
+  | x = ID { Var x }
+  | x = ID POINT LEFTPAR e = expr RIGHTPAR { Arr(x, e) }
 arg:
   |x = ID { Var(x) }
   |UNIT {Unit}

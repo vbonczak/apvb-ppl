@@ -65,6 +65,7 @@ let precompile (e:expr) out =
   |Var(v) -> print out v
   |Int(i) -> fprintf out "%d" i
   |Real(i) -> fprintf out "%f" i
+  |Arr(id, e) -> fprintf out "%s.(" id; prodcode out e; print out ")"
   |Unit -> print out "()"
   |Liste(l) -> print out "["; List.iteri (fun idx e -> (if idx > 0 then print out "; "); prodcode out e; ) l; print out "]"
   |App(a,b) -> prodcode out a; print out " "; prodcode out b;print out " ";
@@ -74,7 +75,7 @@ let precompile (e:expr) out =
     fun a b -> a^(match b with 
                 |Var(x)-> x
                 |Unit->"()"
-                |_-> "NON!"
+                |_-> failwith "Erreur dans un let, l'objet n'est ni un identificateur ni ()."
               ) 
             ) "" l) ;
     prodcode out e; 
@@ -86,6 +87,7 @@ let precompile (e:expr) out =
   |For(x,vmin,vmax,body) -> fprintf out "for %s = " x; prodcode out vmin; print out "to"; prodcode out vmax; print out "do";
   (*Corps de boucle*) prodcode out body;
   print out "\ndone\n";
+  |Assign(d, e) -> manage_assign out d e
   |Dist(s, e) -> fprintf out "let %s = " s; prodcode out e; print out "in\n"
   |String(s) -> fprintf out "\"%s\"" s
   |Proba(p, e) ->  gen_prob_cstr e p 
@@ -113,6 +115,13 @@ let precompile (e:expr) out =
   | MultF -> print out " *. "
   |  DivF  ->  print out " /. ")
     ; prodcode out e2    
+  and manage_assign out d e =
+    (match d with
+    |Arr (id, i) -> fprintf  out "%s.(" id;  prodcode out i; print out ") := "
+    |Var x -> fprintf out "%s := " x
+    |_ -> failwith "Assignement invalide."
+    );
+    prodcode out e
     (*Génération de la ligne de code pour la construction probabiliste*)
   and  gen_prob_cstr expr p= 
   (match p with

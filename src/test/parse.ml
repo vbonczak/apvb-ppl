@@ -32,6 +32,8 @@ let print_ast out e =
     |Int(i) -> print out "Int : "; print_int out i
     |Real(i) -> fprintf  out "Réel : %f" i
     |Unit -> print out "((unit))"
+    |Assign(d, e) -> print_ast_indent out c d; print out " := "; print_ast_indent out c e; print_ret out 
+    |Arr(id, e) -> fprintf out "%s.(" id; print_ast_indent out c e; print out ")"
     |For(x,vmin,vmax,body) -> fprintf out "Pour %s allant de " x; print_ast_indent out c vmin; print out " à ";
      print_ast_indent out c vmax; print out " faire : \n";
     (*Corps de boucle*) print_ast_indent out (c+1) body;print_ret out;print_indent out c; print out "fin pour\n"
