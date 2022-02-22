@@ -37,6 +37,12 @@ open Ast
 %token OPMULT
 
 %token EQUALS
+
+%token FOR
+%token TO
+%token DO
+%token DONE
+
 %token IF
 %token ENDIF
 %token THEN
@@ -63,11 +69,13 @@ open Ast
 
 %token EOF
 
+ %nonassoc SEMICOLON
+
 %nonassoc LEFTBR   LEFTPAR  
 %nonassoc UNIT
 
 %nonassoc IF
- 
+ %nonassoc FOR 
  
 %left EQUALS
 
@@ -89,13 +97,15 @@ statement:
   | e = expr EOL+ { e } 
   | e = expr EOF { e }
 expr: 
-  | LET x = ID l = list(arg) EQUALS  EOL* e = expr  { Let (x,  l, e) } 
+  | LET x = ID l = list(arg) EQUALS  EOL* xs =list(seq) EOL* SEMICOLON  { Let (x,  l, ast_of_list xs) } 
   | IF e = expr THEN et = expr ELSE ef = expr ENDIF { If(e, et, ef) }
+  | FOR x=ID EQUALS vmin=expr TO vmax=expr DO EOL* xs =list(seq) EOL* DONE {For(x,vmin,vmax,ast_of_list xs)}
   | LEFTBR l = separated_list(SEMICOLON, listel) RIGHTBR { Liste(l) }
+  | e = expr e2 = expr {App(e,e2)}
   | LEFTPAR e = expr RIGHTPAR { e }
   | e = condition { e }
   | e1 = expr op = binop e2 = expr { Binop(op, e1, e2) }
-  | BEGIN xs = list(statement) END { ast_of_list xs }
+  | BEGIN xs = list(seq) END { ast_of_list xs }
   | DIST x = ID EQUALS e1 = expr   { Dist (x, e1) } 
   | PPL_SAMPLE e = expr     { Proba (Sample, e) }
   | PPL_ASSUME e = expr     { Proba (Assume, e) }
@@ -103,20 +113,24 @@ expr:
   | PPL_OBSERVE LEFTPAR e1 = expr PIPE e2 = expr; RIGHTPAR { Observe (e1, e2) } 
   | PPL_FACTOR e = expr   { Proba (Factor, e) }
   | PPL_METHOD s = ID  EOL { Method(s) }
-  | PRINT s = STRING { Print(Text, s)}
-  | PRINT id = ID {Print(Distrib, id)}
+  | PRINT e = printable  { e }
   | UNIT { Unit }
-  | e = expr e2 = expr {App(e,e2)}
   | i = INT { Int i }
   | f = REAL { Real f }
   | x = ID { Var x }
   | s = STRING { String s }
+printable:
+  | s = STRING l = list(listel) { App( Print(Text, s), List.fold_right (fun elem acc -> App(elem,acc)) l Nop) } 
+  | x = ID { Print(Distrib, x) }
 arg:
   |x = ID { Var(x) }
   |UNIT {Unit}
 listel:
   // |e = expr SEMICOLON {e}
   |e = expr {e}
+seq:
+  // |e = expr SEMICOLON {e}
+  |e = expr EOL* {e}
 binop:
   |OPOR{BOr}
   |OPAND{BAnd}

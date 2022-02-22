@@ -26,13 +26,14 @@ type proba =
 type printable =
   | Distrib
   | Text
-
+  
   type expr = 
   | Var of string
   | Int of int 
   | Real of float
   | Unit
   | Liste of expr list
+  | For of string * expr * expr * expr (*id, début, fin, corps de la boucle*)
   | Binop of bop * expr * expr
   | Cond of cond * expr * expr
   | Dist of string * expr

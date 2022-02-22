@@ -56,7 +56,7 @@ let snippet_print_gen t s =
   match t with
   |Distrib -> sprintf "let { values; probs; _ } = Option.get %s.support in
 Array.iteri (fun i x -> Format.printf \"%%d %%f@.\" x probs.(i)) values;" s
-  |Text -> sprintf "Format.printf \"%s\";" s
+  |Text -> sprintf "Format.printf \"%s\"" s
 ;;
 
 (* Production d'un fichier OCaml à partir de notre langage *)
@@ -66,8 +66,8 @@ let precompile (e:expr) out =
   |Int(i) -> fprintf out "%d" i
   |Real(i) -> fprintf out "%f" i
   |Unit -> print out "()"
-  |Liste(l) -> print out "["; List.iter (fun e -> prodcode out e; print out "; ") l; print out "]"
-  |App(a,b) -> prodcode out a; print out "("; prodcode out b;print out ")";
+  |Liste(l) -> print out "["; List.iteri (fun idx e -> (if idx > 0 then print out "; "); prodcode out e; ) l; print out "]"
+  |App(a,b) -> prodcode out a; print out " "; prodcode out b;print out " ";
   |Binop(op, e1, e2) -> manage_binop out e1 e2 op
   |Cond(c, e1, e2) -> manage_condition out e1 e2 c
   |Let(x,l,e) -> fprintf out "let %s %s = " x (List.fold_left (
@@ -83,11 +83,16 @@ let precompile (e:expr) out =
     |_ -> print out "\n")
   |If(e,v,f) -> print out "if "; prodcode out e; print out "then begin\n";prodcode out v;
                 print out "\n end\n else begin\n"; prodcode out f;print out "\nend\n"
+  |For(x,vmin,vmax,body) -> fprintf out "for %s = " x; prodcode out vmin; print out "to"; prodcode out vmax; print out "do";
+  (*Corps de boucle*) prodcode out body;
+  print out "\ndone\n";
   |Dist(s, e) -> fprintf out "let %s = " s; prodcode out e; print out "in\n"
   |String(s) -> fprintf out "\"%s\"" s
   |Proba(p, e) ->  gen_prob_cstr e p 
-  |Seq(e1,e2) -> prodcode out e1;print_ret out ; prodcode out e2
-  |Observe(e1, e2) -> print out "\n(*OBSERVE";  prodcode out e1; prodcode out e2; print out "*)\n"
+  |Seq(e1,e2) -> prodcode out e1; (match e1 with
+                 |App(_,_)-> print out ";\n"
+                 |_ -> print_ret out);prodcode out e2
+  |Observe(e1, e2) -> print out "(observe (";prodcode out e1; print out " "; prodcode out e2; print out "))"
   |Method(m) -> fprintf out "open %s\n"  (module_of_infer_method m)
   |Print(t, s) ->  print out @@ (snippet_print_gen t s) ^ "\n"
   |Nop -> print_ret out

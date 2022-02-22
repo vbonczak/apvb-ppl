@@ -27,7 +27,7 @@ let digit = ['0'-'9']
 let int = '-'? digit+
 let real = '-'? digit+'.'digit*
 let letter = ['a'-'z' 'A'-'Z']
-let id = (letter|'_') (letter|digit|'_'|'.')*
+let id = (letter|'_'|'!') (letter|digit|'_'|'.'|'!')*
 
 
 rule read =
@@ -63,6 +63,12 @@ rule read =
   | "let" { LET }
   | "in" { IN }
   | "if" { IF }
+
+  | "for"{FOR}
+  | "to"{TO}
+  | "do"{DO}
+  | "done"{DONE}
+  
   | "print" {PRINT}
   | "endif" { ENDIF }
   | "then" { THEN }
@@ -83,7 +89,7 @@ rule read =
   | _ {err lexbuf "Illegal character: " }
 and string buf = parse
   | '"'       { STRING (Buffer.contents buf) }
-  (* | '\\' 'n'  { Buffer.add_char buf '\n'; string buf lexbuf } *)
+  | '\\' 'n'  { Buffer.add_char buf '\n'; string buf lexbuf }
   | [^ '"' '\\']+
     { Buffer.add_string buf (Lexing.lexeme lexbuf);
       string buf lexbuf

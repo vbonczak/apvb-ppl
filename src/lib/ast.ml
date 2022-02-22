@@ -33,6 +33,7 @@ type expr =
   | Real of float
   | Unit
   | Liste of expr list
+  | For of string * expr * expr * expr (*id, début, fin, corps de la boucle*)
   | Binop of bop * expr * expr
   | Cond of cond * expr * expr
   | Dist of string * expr
@@ -49,5 +50,6 @@ type expr =
 
 let rec ast_of_list = function
   |[] -> Nop
+  |[e] -> e
   |t::q -> Seq(t, ast_of_list q)
   ;;
