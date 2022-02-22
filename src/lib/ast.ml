@@ -1,4 +1,6 @@
 type bop =
+| BAnd
+| BOr
 | Add
 | Sub
 | Mult
@@ -29,6 +31,7 @@ type expr =
   | Var of string
   | Int of int 
   | Real of float
+  | Unit
   | Liste of expr list
   | Binop of bop * expr * expr
   | Cond of cond * expr * expr
@@ -40,7 +43,7 @@ type expr =
   | Observe of expr * expr
   | Seq of expr * expr
   | Method of string
-  | StdCaml of string
+  | String of string
   | Print of printable * string (*Sortie de la distribution spécifiée par son nom, ou alors juste une chaîne*)
   | Nop
 

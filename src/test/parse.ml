@@ -30,19 +30,21 @@ let print_ast out e =
     match e with
     |Var(s) -> print out "Var";print out s
     |Int(i) -> print out "Int"; print_int out i
-    |Real(i) -> print out "Int"; fprintf  out "Réel : %f" i
+    |Real(i) -> fprintf  out "Réel : %f" i
+    |Unit -> print out "((unit))"
     |Liste(l) -> print out "Liste : \n";List.iter (fun e -> print_ast_indent out c e;print_ret out) l;
     |Let(x,l,e) -> 
                                   (match l with
                                   |[] -> fprintf out "let %s =" x
-                                  |_ -> fprintf out "fonction %s params(%s) = {" x (List.fold_left (fun a b -> (match b with 
+                                  |_ -> fprintf out "fonction %s params(%s) = {" x (List.fold_left (fun a b -> a^(match b with 
                                   |Var(x)-> x^" "
-                                  |_-> "autre que var?")^a) "" l));
+                                  |Unit->"()"
+                                  |_-> "autre que var?")) "" l));
     print_ast_indent out (c+1) e; print out "}\n"
     |If(e,v,f) -> print out "IF";print_ast_indent out (c+1) e;
     print out "ALORS";print_ast_indent out (c+1) v;print out "SINON";print_ast_indent out (c+1) f;
     |Dist(s, e) -> print out ("Soit la distribution " ^ s ^ " :=\n"); print_ast_indent out c e;
-    |StdCaml(s) -> print out ("Code OCaml :\n"^s^"\n")
+    |String(s) -> print out ("Chaîne :\n"^s^"\n")
     |Proba(_, e) -> print out "Construction proba sur :\n";print_ast_indent out (c+1) e;
     |Seq(e1,e2) -> print out "SEQ"; print_ast_indent out c e1; print_ret out; print_ast_indent out c e2;
     |Observe(e1, e2) -> print out "Construction proba Observe sur :\n";print_ast_indent out (c+1) e1;print out "\net\n";print_ast_indent out (c+1) e2;
@@ -54,6 +56,8 @@ let print_ast out e =
     )
     |Nop -> fprintf out "Nop"
     |Binop(op,a,b) -> print_ast_indent out (c+1) a;(match op with
+                      | BAnd -> print out " && " 
+                      | BOr ->print out " || " 
                       | Add -> print out " + " 
                       | Sub -> print out " - " 
                       | Mult -> print out " * "

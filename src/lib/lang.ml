@@ -21,12 +21,12 @@ let print out =
 
 let print_ret out =
   print out "\n"
-
+(*
 let test_funny_bern_ast : expr = 
   ast_of_list [
     Method("Rejection");
   (*avec des retours direct dans la chaîne pour l'instant*)
-    StdCaml("let funny_bernoulli () = ");
+    Let("funny_bernoulli", );
     StdCaml("let a = "); 
     Proba(Sample, StdCaml("(bernoulli 0.5) in"));
     StdCaml("let b = "); Proba(Sample, StdCaml("(bernoulli 0.5) in"));
@@ -37,7 +37,9 @@ let test_funny_bern_ast : expr =
   Print(Text, "@.-- Funny Bernoulli, Basic Rejection Sampling --@.");
   Dist("d", Proba(Infer, StdCaml("funny_bernoulli")));
   Print(Distrib, "d")
-  ]    ;;
+  ]    ;;*)
+
+  let test_funny_bern_ast : expr = Nop;;
 
 let dependencies = [];;
 
@@ -49,33 +51,6 @@ let module_of_infer_method = function
 
 
 
-let gen_assume = function
-| StdCaml(s) -> "assume ("^s^");"
-| _ -> "(*Assume invalide*)"
-;;
-
-let gen_infer = function
-| StdCaml(s) -> "infer 10000 "^s
-| _ -> "(*Infer invalide*)"
-;;
-
-let gen_factor = function
-| StdCaml(s) -> "factor "^s
-| _ -> "(*Factor invalide*)"
-;;
-
-let gen_sample = function
-| StdCaml(s) -> "sample "^s
-| _ -> "(*Sample invalide*)"
-;;
-
-(*Génération de la ligne de code pour la construction probabiliste*)
-let gen_prob_cstr expr = function
-| Assume -> gen_assume expr
-| Infer -> gen_infer expr
-| Factor -> gen_factor expr
-| Sample -> gen_sample expr
-;;
 
 let snippet_print_gen t s =
   match t with
@@ -90,26 +65,28 @@ let precompile (e:expr) out =
   |Var(v) -> print out v
   |Int(i) -> fprintf out "%d" i
   |Real(i) -> fprintf out "%f" i
+  |Unit -> print out "()"
   |Liste(l) -> print out "["; List.iter (fun e -> prodcode out e; print out "; ") l; print out "]"
   |App(a,b) -> prodcode out a; print out "("; prodcode out b;print out ")";
   |Binop(op, e1, e2) -> manage_binop out e1 e2 op
   |Cond(c, e1, e2) -> manage_condition out e1 e2 c
   |Let(x,l,e) -> fprintf out "let %s %s = " x (List.fold_left (
-    fun a b -> (match b with 
+    fun a b -> a^(match b with 
                 |Var(x)-> x
+                |Unit->"()"
                 |_-> "NON!"
-              )^a
+              ) 
             ) "" l) ;
     prodcode out e; 
     (match l with
-    |[] -> print out "in\n"
-    |_ -> print out "\n;;\n")
+    |[] -> if x <> "_" then print out "in\n"
+    |_ -> print out "\n")
   |If(e,v,f) -> print out "if "; prodcode out e; print out "then begin\n";prodcode out v;
                 print out "\n end\n else begin\n"; prodcode out f;print out "\nend\n"
   |Dist(s, e) -> fprintf out "let %s = " s; prodcode out e; print out "in\n"
-  |StdCaml(s) -> fprintf out "%s\n" s
-  |Proba(p, e) ->  fprintf out "%s\n" @@ gen_prob_cstr e p 
-  |Seq(e1,e2) -> prodcode out e1;print out ";\n"; prodcode out e2
+  |String(s) -> fprintf out "\"%s\"" s
+  |Proba(p, e) ->  gen_prob_cstr e p 
+  |Seq(e1,e2) -> prodcode out e1;print_ret out ; prodcode out e2
   |Observe(e1, e2) -> print out "\n(*OBSERVE";  prodcode out e1; prodcode out e2; print out "*)\n"
   |Method(m) -> fprintf out "open %s\n"  (module_of_infer_method m)
   |Print(t, s) ->  print out @@ (snippet_print_gen t s) ^ "\n"
@@ -120,6 +97,8 @@ let precompile (e:expr) out =
   | Eq  -> print out " = ")
     ; prodcode out e2
   and manage_binop out e1 e2 c =   prodcode out e1; (match c with
+  | BAnd -> print out " && " 
+  | BOr ->print out " || " 
   | Add -> print out " + " 
   | Sub -> print out " - " 
   | Mult -> print out " * "
@@ -128,7 +107,15 @@ let precompile (e:expr) out =
   | SubF -> print out " -. " 
   | MultF -> print out " *. "
   |  DivF  ->  print out " /. ")
-    ; prodcode out e2
+    ; prodcode out e2    
+    (*Génération de la ligne de code pour la construction probabiliste*)
+  and  gen_prob_cstr expr p= 
+  (match p with
+    | Assume -> print out "assume ("  
+    | Infer -> print out "infer  ("  
+    | Factor -> print out "factor ("
+    | Sample -> print out "sample ("
+    ); prodcode out expr;  print out ");"
   in
 
   let ic = open_in "templates/general2.mlt" in
@@ -145,9 +132,9 @@ let compile path =
   let mlfile = base_name ^ ".ml" in   
   (*Les dépendances sous la forme attendue par ocamlc à savoir dep1,dep2,...*)
   let deps = List.fold_left (fun a b -> (if length a > 0 then (a ^ ",") else "") ^ b) "" dependencies in
-  (*let ich = open_in path in*)
-  let ast = (* parse_channel ich*) test_funny_bern_ast in
-  (*close_in ich*)
+  let ich = open_in path in
+  let ast = parse_channel ich (*test_funny_bern_ast *) in
+  close_in ich;
   let och = open_out mlfile in
   precompile ast och;
   printf "Fichier %s précompilé dans %s\n" path mlfile;
