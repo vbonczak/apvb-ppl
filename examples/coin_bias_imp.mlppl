@@ -14,7 +14,7 @@ let coin score obs =
   for i=0 to (Array.length (s.values))-1 do
     m := !m +. s.values.(i) *. s.probs.(i) 
   done
-  print "@.-- Coin Bias, Basic Rejection Sampling --@."
+  print "@.-- Coin Bias, Basic Importance Sampling --@."
   print "To get [1; 1; 0; 0; 0; 0; 0; 0; 0; 0], try tossing a coin with bias %f!\n" !m
   ;
   
