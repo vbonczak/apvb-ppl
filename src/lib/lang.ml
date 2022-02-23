@@ -117,7 +117,7 @@ let precompile (e:expr) out =
     ; prodcode out e2    
   and manage_assign out d e =
     (match d with
-    |Arr (id, i) -> fprintf  out "%s.(" id;  prodcode out i; print out ") := "
+    |Arr (id, i) -> fprintf  out "%s.(" id;  prodcode out i; print out ") <- "
     |Var x -> fprintf out "%s := " x
     |_ -> failwith "Assignement invalide."
     );
