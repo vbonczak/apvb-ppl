@@ -246,7 +246,27 @@ module Importance_sampling = struct
                
 end
                                
+
+
+module MH_MS = struct
+
+  let sample d = d.sample();;
   
+  let infer n f score = (* score takes a sample as input, and returns a float as score *)
+    let x = f() (* First sample *) in
+    let w0 = score x in
+    let rec aux n x w = match n with
+      |0 -> x
+      |n -> begin
+          let y = f() in
+          let wi = score y in
+          let p = Random.float 1.
+          if p *. w <= wi then aux (n-1) y wi else aux (n-1) x w;
+        end
+    in aux (n-1) x w0
+  ;;
+
+  end
                  
                
 
