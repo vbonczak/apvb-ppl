@@ -68,13 +68,14 @@ let precompile (e:expr) out =
   |Arr(id, e) -> fprintf out "%s.(" id; prodcode out e; print out ")"
   |Unit -> print out "()"
   |Liste(l) -> print out "["; List.iteri (fun idx e -> (if idx > 0 then print out "; "); prodcode out e; ) l; print out "]"
-  |App(a,b) -> prodcode out a; print out " "; prodcode out b;print out " ";
+  |Paren e -> print out "("; prodcode out e; print out ")" 
+  |App(a,b) -> prodcode out a; print out "  "; prodcode out b;print out "  ";
   |Binop(op, e1, e2) -> manage_binop out e1 e2 op
   |Cond(c, e1, e2) -> manage_condition out e1 e2 c
   |Let(x,l,e) -> fprintf out "let %s %s = " x (List.fold_left (
-    fun a b -> a^(match b with 
+    fun a b -> a^" "^(match b with 
                 |Var(x)-> x
-                |Unit->"()"
+                |Unit->" () "
                 |_-> failwith "Erreur dans un let, l'objet n'est ni un identificateur ni ()."
               ) 
             ) "" l) ;
@@ -94,10 +95,10 @@ let precompile (e:expr) out =
   |Seq(e1,e2) -> prodcode out e1; (match e1 with
                  |App(_,_)-> print out ";\n"
                  |_ -> print_ret out);prodcode out e2
-  |Observe(e1, e2) -> print out "(observe (";prodcode out e1; print out " "; prodcode out e2; print out "))"
+  |Observe(e1, e2) -> print out "observe ";prodcode out e1; print out "  "; prodcode out e2; print out " "
   |Method(m) -> fprintf out "open %s\n"  (module_of_infer_method m)
   |Print(t, s) ->  print out @@ (snippet_print_gen t s) ^ "\n"
-  |Nop -> print_ret out
+  |Nop -> ()
   and manage_condition out e1 e2 c =   prodcode out e1; (match c with
   | LT  -> print out " < " 
   | Leq -> print out " <= " 
@@ -125,11 +126,11 @@ let precompile (e:expr) out =
     (*Génération de la ligne de code pour la construction probabiliste*)
   and  gen_prob_cstr expr p= 
   (match p with
-    | Assume -> print out "assume ("  
-    | Infer -> print out "infer 10000 ("  
-    | Factor -> print out "factor ("
-    | Sample -> print out "sample ("
-    ); prodcode out expr;  print out ");"
+    | Assume -> print out "assume "  
+    | Infer -> print out "infer 10000 "  
+    | Factor -> print out "factor "
+    | Sample -> print out "sample "
+    ); prodcode out expr;  print out ";"
   in
 
   let ic = open_in "templates/general2.mlt" in

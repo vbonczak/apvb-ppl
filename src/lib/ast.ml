@@ -32,6 +32,7 @@ type expr =
   | Int of int 
   | Arr of string * expr
   | Real of float
+  | Paren of expr
   | Unit
   | Assign of expr * expr (*Var ou Arr, et valeur*)
   | Liste of expr list
