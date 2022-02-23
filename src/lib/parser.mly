@@ -73,6 +73,9 @@ open Ast
 %token EOF
 
 %nonassoc SEMICOLON
+%nonassoc MoinsSeul 
+%nonassoc Binop
+%nonassoc Application
 
 %nonassoc LEFTBR   LEFTPAR   POINT
 %nonassoc UNIT
@@ -85,6 +88,7 @@ open Ast
 
 %left OPGEQ OPGT OPLEQ OPLT 
  
+
 %nonassoc OPPLUS OPFPLUS OPFMOINS OPMOINS
 %left OPDIV OPFDIV OPMULT OPFMULT
 
@@ -105,11 +109,11 @@ expr:
   | IF e = expr THEN et = expr ELSE ef = expr ENDIF { If(e, et, ef) }
   | FOR x=ID EQUALS vmin=expr TO vmax=expr DO EOL* xs =list(seq) EOL* DONE {For(x,vmin,vmax,ast_of_list xs)}
   | LEFTBR l = separated_list(SEMICOLON, listel) RIGHTBR { Liste(l) }
-  | e = expr e2 = expr {App(e,e2)}
+  | e1 = expr op = binop e2 = expr %prec Binop { Binop(op, e1, e2) }
+  | e = expr e2 = expr  %prec Application {App(e,e2)}
   | LEFTPAR e = expr RIGHTPAR { e }
   | d = destination ASSIGN e = expr { Assign(d,e) }
   | e = condition { e }
-  | e1 = expr op = binop e2 = expr { Binop(op, e1, e2) }
   | BEGIN xs = list(seq) END { ast_of_list xs }
   | DIST x = ID EQUALS e1 = expr   { Dist (x, e1) } 
   | PPL_SAMPLE e = expr     { Proba (Sample, e) }
@@ -121,25 +125,43 @@ expr:
   | PRINT e = printable  { e }
   | UNIT { Unit }
   | x = ID POINT LEFTPAR e = expr RIGHTPAR { Arr(x, e) }
+  | c = constant { c }
+  | x = ID { Var x }
+  ;
+
+constant:
   | i = INT { Int i }
   | f = REAL { Real f }
-  | x = ID { Var x }
+  | OPMOINS i = INT %prec MoinsSeul { Int (-i) }
+  | OPMOINS f = REAL %prec MoinsSeul  { Real (-.f) }
   | s = STRING { String s }
+  ;
+
 printable:
   | s = STRING l = list(listel) { App( Print(Text, s), List.fold_right (fun elem acc -> App(elem,acc)) l Nop) } 
   | x = ID { Print(Distrib, x) }
+  ;
+
 destination:(*type lvalue*)
   | x = ID { Var x }
   | x = ID POINT LEFTPAR e = expr RIGHTPAR { Arr(x, e) }
+  ;
+
 arg:
   |x = ID { Var(x) }
   |UNIT {Unit}
+  ;
+
 listel:
   // |e = expr SEMICOLON {e}
   |e = expr {e}
+  ;
+
 seq:
   // |e = expr SEMICOLON {e}
   |e = expr EOL* {e}
+  ;
+
 binop:
   |OPOR{BOr}
   |OPAND{BAnd}
@@ -151,13 +173,13 @@ binop:
   |OPMOINS {Sub}
   |OPPLUS {Add}
   |OPMULT {Mult}
+  ;
+
 condition:
   |e1 = expr OPLT e2 = expr { Cond(LT, e1, e2) }
   |e1 = expr OPLEQ e2 = expr { Cond(Leq, e1, e2) }
   |e1 = expr OPGT e2 = expr { Cond(LT, e2, e1) }
   |e1 = expr OPGEQ e2 = expr { Cond(Leq, e2, e1) }
   |e1 = expr EQUALS e2 = expr { Cond(Eq, e1, e2) }
-(*expr:
-  | v = CAML; EOL; e = expr { StdCaml(v, e) }
-  ;*)
   ;
+  

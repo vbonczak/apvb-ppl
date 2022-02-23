@@ -24,8 +24,8 @@ let next_line lexbuf =
 let white = [' ' '\t']+
 let newline = ['\n' '\r']
 let digit = ['0'-'9']
-let int = '-'? digit+
-let real = '-'? digit+'.'digit*
+let int =  digit+
+let real = digit+'.'digit*
 let letter = ['a'-'z' 'A'-'Z']
 let id = (letter|'_'|'!') (  (letter|digit|'_'|'.')+ (letter|digit|'_'|'!') | (letter|digit|'_')*   )
 

@@ -84,9 +84,9 @@ let precompile (e:expr) out =
     |_ -> print out "\n")
   |If(e,v,f) -> print out "if "; prodcode out e; print out "then begin\n";prodcode out v;
                 print out "\n end\n else begin\n"; prodcode out f;print out "\nend\n"
-  |For(x,vmin,vmax,body) -> fprintf out "for %s = " x; prodcode out vmin; print out "to"; prodcode out vmax; print out "do";
+  |For(x,vmin,vmax,body) -> fprintf out "for %s = " x; prodcode out vmin; print out " to "; prodcode out vmax; print out " do\n";
   (*Corps de boucle*) prodcode out body;
-  print out "\ndone\n";
+  print out "\ndone;\n";
   |Assign(d, e) -> manage_assign out d e
   |Dist(s, e) -> fprintf out "let %s = " s; prodcode out e; print out "in\n"
   |String(s) -> fprintf out "\"%s\"" s
