@@ -26,11 +26,13 @@ type proba =
 type printable =
   | Distrib
   | Text
-  type expr = 
+  
+type expr = 
   | Var of string
   | Int of int 
   | Arr of string * expr
   | Real of float
+  | Paren of expr
   | Unit
   | Assign of expr * expr (*Var ou Arr, et valeur*)
   | Liste of expr list
@@ -48,6 +50,7 @@ type printable =
   | String of string
   | Print of printable * string (*Sortie de la distribution spécifiée par son nom, ou alors juste une chaîne*)
   | Nop
+ 
 
 
 val ast_of_list : expr list -> expr

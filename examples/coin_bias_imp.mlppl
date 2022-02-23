@@ -1,0 +1,20 @@
+method Importance
+
+let coin score obs =
+      let z = sample (uniform 0. 1.) ;
+  List.iter (observe (score | (bernoulli z))) obs
+  z;
+  
+ let _ =
+  Random.self_init()
+  dist d = infer coin [1; 1; 0; 0; 0; 0; 0; 0; 0; 0]
+  let m = ref 0.  ;
+
+  let s = Option.get (d.support)  ;
+  for i=0 to (Array.length (s.values))-1 do
+    m := !m +. s.values.(i) *. s.probs.(i) 
+  done
+  print "@.-- Coin Bias, Basic Importance Sampling --@."
+  print "To get [1; 1; 0; 0; 0; 0; 0; 0; 0; 0], try tossing a coin with bias %f!\n" !m
+  ;
+  

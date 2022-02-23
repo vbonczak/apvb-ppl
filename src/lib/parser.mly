@@ -75,10 +75,9 @@ open Ast
 %nonassoc SEMICOLON
 %nonassoc MoinsSeul 
 %nonassoc Binop
-%nonassoc Application
+%left Application
 
 %nonassoc LEFTBR   LEFTPAR   POINT
-%nonassoc UNIT
 
 %nonassoc IF
 %nonassoc FOR 
@@ -96,6 +95,9 @@ open Ast
 %right OPOR
 %right OPAND
 
+%nonassoc UNIT
+%nonassoc Unit
+
 %%
 
 prog:
@@ -111,7 +113,7 @@ expr:
   | LEFTBR l = separated_list(SEMICOLON, listel) RIGHTBR { Liste(l) }
   | e1 = expr op = binop e2 = expr %prec Binop { Binop(op, e1, e2) }
   | e = expr e2 = expr  %prec Application {App(e,e2)}
-  | LEFTPAR e = expr RIGHTPAR { e }
+  | LEFTPAR e = expr RIGHTPAR { Paren e }
   | d = destination ASSIGN e = expr { Assign(d,e) }
   | e = condition { e }
   | BEGIN xs = list(seq) END { ast_of_list xs }
@@ -119,11 +121,12 @@ expr:
   | PPL_SAMPLE e = expr     { Proba (Sample, e) }
   | PPL_ASSUME e = expr     { Proba (Assume, e) }
   | PPL_INFER e = expr   { Proba (Infer, e) }
-  | PPL_OBSERVE LEFTPAR e1 = expr PIPE e2 = expr; RIGHTPAR { Observe (e1, e2) } 
+  | PPL_OBSERVE LEFTPAR e1 = expr RIGHTPAR  { Observe (e1, Nop) } 
+  | PPL_OBSERVE LEFTPAR e1 = expr PIPE e2 = expr RIGHTPAR { Observe (e1, e2) } 
   | PPL_FACTOR e = expr   { Proba (Factor, e) }
   | PPL_METHOD s = ID  EOL { Method(s) }
   | PRINT e = printable  { e }
-  | UNIT { Unit }
+  | UNIT %prec Unit { Unit }
   | x = ID POINT LEFTPAR e = expr RIGHTPAR { Arr(x, e) }
   | c = constant { c }
   | x = ID { Var x }
