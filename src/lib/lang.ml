@@ -2,7 +2,7 @@ open Ast
 open Printf
 open String
 
-
+open Option
 
 let parse_string (s : string) : expr =
   let lexbuf = Lexing.from_string s in
@@ -65,7 +65,7 @@ Array.iteri (fun i x -> Format.printf \"%%d %%f@.\" x probs.(i)) values;" s
 (*MetroSingle*)
 type location = LDecl  (* Which declaration in a sequence of instructions without for or if *)
   | LIf of bool * location
-  | LFor of nat * location
+  | LFor of int * location
   (* Describes where a variable is located in the code so as to distinguish different 
   instructions of the form "let x = sample ..." *)
 
@@ -86,11 +86,17 @@ type vartype =
 | Scope of string list (*Les variables dont on dépend à ce point du programme*)
 | Loc of location option (*Notre emplacement actuel, none = toplevel*)
 ;;
+ 
 
 let builtin_dists = ["bernoulli";"normal";"uniform";"binomial"];;
 
-let list_of_scope = function | Scope l => l | _ => [] ;;
-let locopt_of_loc = function | Loc l => l | _ => None ;;
+let list_of_scope = function | Scope l -> l | _ -> [] ;;
+let locopt_of_loc = function | Loc l -> l | _ -> None ;;
+
+let vartype_VarInfo_loc = function | VarInfo(l,_)->l | _ ->ignore (failwith ("Mauvais type d'information dans l'environnement (VarInfo attendu).")); LDecl ;;
+
+let vartype_VarInfo_deps = function | VarInfo(_,d)->d | _ ->
+  ignore (failwith ("Mauvais type d'information dans l'environnement (VarInfo attendu).")); [] ;;
 
 let dist_in_env env name = 
   match Hashtbl.find_opt env name with
@@ -104,11 +110,25 @@ let rec is_dist env (*expr*) =  function
   |Var x -> (List.mem x builtin_dists) || (dist_in_env env x)
   |_ -> false
 ;;
-
-
+ 
 
 let is_smetropolis env = 
   Hashtbl.find env "Method" = OtherSetting("MetroSingle")
+;;
+
+let rec find_vars = function
+|Var x -> [x]
+|App (e1,e2) -> (find_vars e1) @ (find_vars e2)
+|Paren e -> find_vars e
+|Let(_,_,e) -> find_vars e
+|If(e, v, f)  -> (find_vars e) @(find_vars v)@(find_vars f)
+|_ -> []
+;;
+
+let rec print_loc = function
+| LDecl -> "LDecl"
+| LIf(b, l) ->sprintf "LIf(%b , %s)" b (print_loc l)
+| LFor(n, l) -> sprintf "LFor(%n , %s)" n (print_loc l)
 ;;
 
 (* Production d'un fichier OCaml à partir de notre langage *)
@@ -125,27 +145,29 @@ let precompile (e:expr) out  =
   |Binop(op, e1, e2) -> manage_binop out env e1 e2 op
   |Cond(c, e1, e2) -> manage_condition out env e1 e2 c
   (*Pour métropolis*)
-  |Let(x,[], Proba(Sample, e)) when is_smetropolis env -> 
-    let infos = sprintf "let x = sample \"%s\" " x x ; 
+  |Let(x,[], Proba(Sample, e)) when is_smetropolis env ->  
+    let infos = sprintf "let %s = sample \"%s\" " x x in 
     let curloc = locopt_of_loc (Hashtbl.find env "Loc") in
     Hashtbl.add env x (VarInfo(
-        (if is_none curloc then
+        (if is_none curloc  
           then (*Toplevel*) LDecl 
           else (*Imbriqué*) loc_pushback LDecl (Option.get curloc)
         )
-      ), []); (*Personne ne dépend de x pour l'instant*)
-    
-    (*Par contre, x dépend des variables dans notre scope*)
-    List.iter (Hashtbl.find env "Scope") 
-        (fun var -> let info =  Hashtbl.find env var in
-        Hashtbl.replace env var (fst info , x::(snd info))); (*ajout de x dans les variables dépendant de var*)
+      , [])); (*Personne ne dépend de x pour l'instant*)
+    fprintf out "(* LOC(%s) = %s *)\n" x (print_loc (vartype_VarInfo_loc (Hashtbl.find env x)));
+    (*Par contre, x dépend des variables dans notre scope ? TODO rechercher auxquelles on fait référence*)
+
+    List.iter   (*Hashtbl.find env "Scope"*)
+        (fun var -> let info =  Hashtbl.find env var in (*Plante si une variable n'est pas dans la portée! TODO gestion de l'erreur*)
+        Hashtbl.replace env var (VarInfo(vartype_VarInfo_loc info , x::(vartype_VarInfo_deps info))) )
+        (find_vars e); (*ajout de x dans les variables dépendant de var*)
 
     let cur_scope = list_of_scope (Hashtbl.find env "Scope") in (*Liste du contexte*)
     Hashtbl.replace env "Scope" (x::cur_scope); (*Ajout de x dans le contexte actuel*)
-    prodcode out env (Proba(Sample, e));
+    prodcode out env (e);
     (*Le let ne se "referme" jamais de son initiative (voir le cas du if à ce sujet)*)
 
-    print out "in\n"
+    print out " in\n"
 
   |If(Proba(Sample, e), vrai, faux) when is_smetropolis env -> 
     print out "if "; 
@@ -156,23 +178,28 @@ let precompile (e:expr) out  =
     let curloc = locopt_of_loc (Hashtbl.find env "Loc") in
 
     print out "then begin\n"; (*true*)
-    let loc_true = (if is_none curloc then
+    let loc_true = (if is_none curloc  
       then (*Toplevel*) LIf(true, LDecl) 
       else (*Imbriqué*) loc_pushback LIf(true, LDecl)  (Option.get curloc)
-    );
+    ) in
     Hashtbl.replace env "Loc" loc_true; (*mise à jour de la loc actuelle*)
     prodcode out env v;
-    
+
     print out "\n end\n else begin\n"; (*false*)
-    let loc_false = (if is_none curloc then
+    let loc_false = (if is_none curloc  
       then (*Toplevel*) LIf(false, LDecl) 
       else (*Imbriqué*) loc_pushback LIf(false, LDecl)  (Option.get curloc)
-    );
+    ) in
     Hashtbl.replace env "Loc" loc_false; (*mise à jour de la loc actuelle, autre choix*)
     prodcode out env  f; print out "\nend\n"
     
     (*Rétablissement du scope avant le if*)
     Hashtbl.replace env  "Scope" cur_scope;
+    (*et de la loc*)
+    Hashtbl.replace env "Loc" cur_loc;
+  |For(x,vmin,vmax,body)  when is_smetropolis env -> fprintf out "for %s = " x; prodcode out env  vmin; print out " to "; prodcode out env  vmax; print out " do\n";
+    (*Corps de boucle TOTO single metro*) prodcode out env  body;
+                    print out "\ndone;\n";
 
   (*les autres*)
   |Let(x,l,e) -> fprintf out "let %s %s = " x (List.fold_left (
@@ -185,7 +212,12 @@ let precompile (e:expr) out  =
     prodcode out env  e; 
     (match l with
     |[] -> if x <> "_" then print out "in\n"
-    |_ -> print out "\n")
+    |_ when is_smetropolis env (*Une fonction : on donne les variantes first_f et resample_f qui vont retourner 
+    le tableau des variables associées à leur emplacement et les variables qui en dépendent*) ->
+      fprintf out "\nlet first_%s = " x; smetro_generate_first_variant out env e; print out ";;\n"
+
+      fprintf out "\nlet resample_%s = " x; smetro_generate_resample_variant out env e; print out ";;\n"
+    |_ -> print out "\n"; )
   |If(e,v,f) -> print out "if "; prodcode out env  e; print out "then begin\n";prodcode out env  v;
                 print out "\n end\n else begin\n"; prodcode out env  f;print out "\nend\n"
   |For(x,vmin,vmax,body) -> fprintf out "for %s = " x; prodcode out env  vmin; print out " to "; prodcode out env  vmax; print out " do\n";
