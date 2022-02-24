@@ -3,6 +3,7 @@ open Printf
 open String
 
 
+
 let parse_string (s : string) : expr =
   let lexbuf = Lexing.from_string s in
   let ast = Parser.prog Lexer.read lexbuf in
@@ -59,19 +60,28 @@ Array.iteri (fun i x -> Format.printf \"%%d %%f@.\" x probs.(i)) values;" s
   |Text -> sprintf "Format.printf \"%s\"" s
 ;;
 
+type vartype =
+| SetMetroComp of (float->float->bool) (* fonction de comparaison pour Métropolis *)
+| SetInferSamples of int
+| OtherSetting of string 
+| Distribution (* Une distribution introduite par dist *)
+(* à étoffer pour vérifier plus de choses de notre côté *)
+
+
+
 (* Production d'un fichier OCaml à partir de notre langage *)
-let precompile (e:expr) out = 
-  let rec prodcode out = function
+let precompile (e:expr) out  = 
+  let rec prodcode out env = function
   |Var(v) -> print out v
   |Int(i) -> fprintf out "%d" i
   |Real(i) -> fprintf out "%f" i
-  |Arr(id, e) -> fprintf out "%s.(" id; prodcode out e; print out ")"
+  |Arr(id, e) -> fprintf out "%s.(" id; prodcode out env  e; print out ")"
   |Unit -> print out "()"
-  |Liste(l) -> print out "["; List.iteri (fun idx e -> (if idx > 0 then print out "; "); prodcode out e; ) l; print out "]"
-  |Paren e -> print out "("; prodcode out e; print out ")" 
-  |App(a,b) -> prodcode out a; print out "  "; prodcode out b;print out "  ";
-  |Binop(op, e1, e2) -> manage_binop out e1 e2 op
-  |Cond(c, e1, e2) -> manage_condition out e1 e2 c
+  |Liste(l) -> print out "["; List.iteri (fun idx e -> (if idx > 0 then print out "; "); prodcode out env  e; ) l; print out "]"
+  |Paren e -> print out "("; prodcode out env  e; print out ")" 
+  |App(a,b) -> prodcode out env  a; print out "  "; prodcode out env  b;print out "  ";
+  |Binop(op, e1, e2) -> manage_binop out env e1 e2 op
+  |Cond(c, e1, e2) -> manage_condition out env e1 e2 c
   |Let(x,l,e) -> fprintf out "let %s %s = " x (List.fold_left (
     fun a b -> a^" "^(match b with 
                 |Var(x)-> x
@@ -79,32 +89,34 @@ let precompile (e:expr) out =
                 |_-> failwith "Erreur dans un let, l'objet n'est ni un identificateur ni ()."
               ) 
             ) "" l) ;
-    prodcode out e; 
+    prodcode out env  e; 
     (match l with
     |[] -> if x <> "_" then print out "in\n"
     |_ -> print out "\n")
-  |If(e,v,f) -> print out "if "; prodcode out e; print out "then begin\n";prodcode out v;
-                print out "\n end\n else begin\n"; prodcode out f;print out "\nend\n"
-  |For(x,vmin,vmax,body) -> fprintf out "for %s = " x; prodcode out vmin; print out " to "; prodcode out vmax; print out " do\n";
-  (*Corps de boucle*) prodcode out body;
+  |If(e,v,f) -> print out "if "; prodcode out env  e; print out "then begin\n";prodcode out env  v;
+                print out "\n end\n else begin\n"; prodcode out env  f;print out "\nend\n"
+  |For(x,vmin,vmax,body) -> fprintf out "for %s = " x; prodcode out env  vmin; print out " to "; prodcode out env  vmax; print out " do\n";
+  (*Corps de boucle*) prodcode out env  body;
   print out "\ndone;\n";
-  |Assign(d, e) -> manage_assign out d e
-  |Dist(s, e) -> fprintf out "let %s = " s; prodcode out e; print out "in\n"
+  |Assign(d, e) -> manage_assign out env d e
+  |Dist(s, e) -> fprintf out "let %s = " s; 
+  Hashtbl.add env s Distribution; (* Le type de s est distribution *)
+  prodcode out env  e; print out "in\n"
   |String(s) -> fprintf out "\"%s\"" s
-  |Proba(p, e) ->  gen_prob_cstr e p 
-  |Seq(e1,e2) -> prodcode out e1; (match e1 with
+  |Proba(p, e) ->  gen_prob_cstr e env p 
+  |Seq(e1,e2) -> prodcode out env  e1; (match e1 with
                  |App(_,_)-> print out ";\n"
-                 |_ -> print_ret out);prodcode out e2
-  |Observe(e1, e2) -> print out "observe ";prodcode out e1; print out "  "; prodcode out e2; print out " "
+                 |_ -> print_ret out);prodcode out env  e2
+  |Observe(e1, e2) -> print out "observe ";prodcode out env  e1; print out "  "; prodcode out env  e2; print out " "
   |Method(m) -> fprintf out "open %s\n"  (module_of_infer_method m)
   |Print(t, s) ->  print out @@ (snippet_print_gen t s) ^ "\n"
   |Nop -> ()
-  and manage_condition out e1 e2 c =   prodcode out e1; (match c with
+  and manage_condition out env e1 e2 c =   prodcode out env  e1; (match c with
   | LT  -> print out " < " 
   | Leq -> print out " <= " 
   | Eq  -> print out " = ")
-    ; prodcode out e2
-  and manage_binop out e1 e2 c =   prodcode out e1; (match c with
+    ; prodcode out env  e2
+  and manage_binop out env e1 e2 c =   prodcode out env  e1; (match c with
   | BAnd -> print out " && " 
   | BOr ->print out " || " 
   | Add -> print out " + " 
@@ -115,29 +127,33 @@ let precompile (e:expr) out =
   | SubF -> print out " -. " 
   | MultF -> print out " *. "
   |  DivF  ->  print out " /. ")
-    ; prodcode out e2    
-  and manage_assign out d e =
+    ; prodcode out env  e2    
+  and manage_assign out env d e =
     (match d with
-    |Arr (id, i) -> fprintf  out "%s.(" id;  prodcode out i; print out ") <- "
+    |Arr (id, i) -> fprintf  out "%s.(" id;  prodcode out env  i; print out ") <- "
     |Var x -> fprintf out "%s := " x
     |_ -> failwith "Assignement invalide."
     );
-    prodcode out e
+    prodcode out env  e
     (*Génération de la ligne de code pour la construction probabiliste*)
-  and  gen_prob_cstr expr p= 
+  and  gen_prob_cstr expr env p= 
   (match p with
-    | Assume -> print out "assume "  
-    | Infer -> print out "infer 10000 "  
+    | Assume -> print out "assume " 
+    | Infer -> print out "infer 10000 " 
     | Factor -> print out "factor "
-    | Sample -> print out "sample "
-    ); prodcode out expr;  print out ";"
+    | Sample -> print out "sample " (*La suite immédiate doit être une distribution*)
+    ); prodcode out env  expr;  print out ";"
   in
-
+  (* Tableau des variables -> type *)
   let ic = open_in "templates/general2.mlt" in
   let s = really_input_string ic (in_channel_length ic) in
   close_in ic;
   fprintf out "%s\n(*Fin de la partie d'entête*)\n" s;
-  prodcode out e
+  let env = Hashtbl.create 10 in
+  Hashtbl.add env "File" (OtherSetting "general2");
+  Hashtbl.add env "Metro" (SetMetroComp((<=)));
+  Hashtbl.add env "Infer" (SetInferSamples(1000));
+  prodcode out env  e
 ;;
 
 let compile path =
