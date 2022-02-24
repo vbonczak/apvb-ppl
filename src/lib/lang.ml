@@ -21,7 +21,7 @@ let print out =
 ;;
 
 let print_ret out =
-  print out "\n"
+  print out "\n";;
 (*
 let test_funny_bern_ast : expr = 
   ast_of_list [
@@ -47,7 +47,9 @@ let dependencies = [];;
 let module_of_infer_method = function
 |"Rejection" -> "Rejection_sampling"
 |"Importance" -> "Importance_sampling"
-|s -> "Array (*valeur "^s^" invalide ici*)" 
+|"MetroSingle" -> "MH_Single"
+|"MetroMulti" -> "MH_MS"
+|s -> ignore (failwith ("valeur "^s^" invalide ici")); ""
 ;;
 
 
@@ -60,14 +62,54 @@ Array.iteri (fun i x -> Format.printf \"%%d %%f@.\" x probs.(i)) values;" s
   |Text -> sprintf "Format.printf \"%s\"" s
 ;;
 
+(*MetroSingle*)
+type location = LDecl  (* Which declaration in a sequence of instructions without for or if *)
+  | LIf of bool * location
+  | LFor of nat * location
+  (* Describes where a variable is located in the code so as to distinguish different 
+  instructions of the form "let x = sample ..." *)
+
+let rec loc_pushback loc (*toloc*) = function 
+| LDecl -> loc
+| LIf(b, l) -> LIf(b, loc_pushback loc l)
+| LFor(n, l) -> LFor(n, loc_pushback loc l)
+;;
+
 type vartype =
 | SetMetroComp of (float->float->bool) (* fonction de comparaison pour Métropolis *)
 | SetInferSamples of int
 | OtherSetting of string 
 | Distribution (* Une distribution introduite par dist *)
 (* à étoffer pour vérifier plus de choses de notre côté *)
+(*Spécialités pour MétroSingle*)
+| VarInfo of location * string list (*Location ci dessus et liste de variables qui en dépendent*)
+| Scope of string list (*Les variables dont on dépend à ce point du programme*)
+| Loc of location option (*Notre emplacement actuel, none = toplevel*)
+;;
+
+let builtin_dists = ["bernoulli";"normal";"uniform";"binomial"];;
+
+let list_of_scope = function | Scope l => l | _ => [] ;;
+let locopt_of_loc = function | Loc l => l | _ => None ;;
+
+let dist_in_env env name = 
+  match Hashtbl.find_opt env name with
+  |Some x -> (match x with Distribution -> true | _ -> false)
+  |None -> ignore (failwith ("La distribution "^name^" est introuvable.")); false
+;;
+
+let rec is_dist env (*expr*) =  function
+  |App(a, _) -> is_dist env a
+  |Paren(e) -> is_dist env e
+  |Var x -> (List.mem x builtin_dists) || (dist_in_env env x)
+  |_ -> false
+;;
 
 
+
+let is_smetropolis env = 
+  Hashtbl.find env "Method" = OtherSetting("MetroSingle")
+;;
 
 (* Production d'un fichier OCaml à partir de notre langage *)
 let precompile (e:expr) out  = 
@@ -82,6 +124,57 @@ let precompile (e:expr) out  =
   |App(a,b) -> prodcode out env  a; print out "  "; prodcode out env  b;print out "  ";
   |Binop(op, e1, e2) -> manage_binop out env e1 e2 op
   |Cond(c, e1, e2) -> manage_condition out env e1 e2 c
+  (*Pour métropolis*)
+  |Let(x,[], Proba(Sample, e)) when is_smetropolis env -> 
+    let infos = sprintf "let x = sample \"%s\" " x x ; 
+    let curloc = locopt_of_loc (Hashtbl.find env "Loc") in
+    Hashtbl.add env x (VarInfo(
+        (if is_none curloc then
+          then (*Toplevel*) LDecl 
+          else (*Imbriqué*) loc_pushback LDecl (Option.get curloc)
+        )
+      ), []); (*Personne ne dépend de x pour l'instant*)
+    
+    (*Par contre, x dépend des variables dans notre scope*)
+    List.iter (Hashtbl.find env "Scope") 
+        (fun var -> let info =  Hashtbl.find env var in
+        Hashtbl.replace env var (fst info , x::(snd info))); (*ajout de x dans les variables dépendant de var*)
+
+    let cur_scope = list_of_scope (Hashtbl.find env "Scope") in (*Liste du contexte*)
+    Hashtbl.replace env "Scope" (x::cur_scope); (*Ajout de x dans le contexte actuel*)
+    prodcode out env (Proba(Sample, e));
+    (*Le let ne se "referme" jamais de son initiative (voir le cas du if à ce sujet)*)
+
+    print out "in\n"
+
+  |If(Proba(Sample, e), vrai, faux) when is_smetropolis env -> 
+    print out "if "; 
+    prodcode out env  e; 
+    (*Sauvegarde de notre scope*)
+    let cur_scope = Hashtbl.find env  "Scope" in
+    (*Contexte location actuel*)
+    let curloc = locopt_of_loc (Hashtbl.find env "Loc") in
+
+    print out "then begin\n"; (*true*)
+    let loc_true = (if is_none curloc then
+      then (*Toplevel*) LIf(true, LDecl) 
+      else (*Imbriqué*) loc_pushback LIf(true, LDecl)  (Option.get curloc)
+    );
+    Hashtbl.replace env "Loc" loc_true; (*mise à jour de la loc actuelle*)
+    prodcode out env v;
+    
+    print out "\n end\n else begin\n"; (*false*)
+    let loc_false = (if is_none curloc then
+      then (*Toplevel*) LIf(false, LDecl) 
+      else (*Imbriqué*) loc_pushback LIf(false, LDecl)  (Option.get curloc)
+    );
+    Hashtbl.replace env "Loc" loc_false; (*mise à jour de la loc actuelle, autre choix*)
+    prodcode out env  f; print out "\nend\n"
+    
+    (*Rétablissement du scope avant le if*)
+    Hashtbl.replace env  "Scope" cur_scope;
+
+  (*les autres*)
   |Let(x,l,e) -> fprintf out "let %s %s = " x (List.fold_left (
     fun a b -> a^" "^(match b with 
                 |Var(x)-> x
@@ -97,25 +190,29 @@ let precompile (e:expr) out  =
                 print out "\n end\n else begin\n"; prodcode out env  f;print out "\nend\n"
   |For(x,vmin,vmax,body) -> fprintf out "for %s = " x; prodcode out env  vmin; print out " to "; prodcode out env  vmax; print out " do\n";
   (*Corps de boucle*) prodcode out env  body;
-  print out "\ndone;\n";
+                  print out "\ndone;\n";
   |Assign(d, e) -> manage_assign out env d e
   |Dist(s, e) -> fprintf out "let %s = " s; 
-  Hashtbl.add env s Distribution; (* Le type de s est distribution *)
-  prodcode out env  e; print out "in\n"
+                      Hashtbl.add env s Distribution; (* Le type de s est distribution *)
+                      prodcode out env  e; print out "in\n"
   |String(s) -> fprintf out "\"%s\"" s
   |Proba(p, e) ->  gen_prob_cstr e env p 
   |Seq(e1,e2) -> prodcode out env  e1; (match e1 with
                  |App(_,_)-> print out ";\n"
                  |_ -> print_ret out);prodcode out env  e2
   |Observe(e1, e2) -> print out "observe ";prodcode out env  e1; print out "  "; prodcode out env  e2; print out " "
-  |Method(m) -> fprintf out "open %s\n"  (module_of_infer_method m)
+  |Method(m) -> fprintf out "open %s\n"  (module_of_infer_method m); Hashtbl.add env "Method" (OtherSetting m)
   |Print(t, s) ->  print out @@ (snippet_print_gen t s) ^ "\n"
   |Nop -> ()
+
+
   and manage_condition out env e1 e2 c =   prodcode out env  e1; (match c with
   | LT  -> print out " < " 
   | Leq -> print out " <= " 
   | Eq  -> print out " = ")
     ; prodcode out env  e2
+
+
   and manage_binop out env e1 e2 c =   prodcode out env  e1; (match c with
   | BAnd -> print out " && " 
   | BOr ->print out " || " 
@@ -128,6 +225,8 @@ let precompile (e:expr) out  =
   | MultF -> print out " *. "
   |  DivF  ->  print out " /. ")
     ; prodcode out env  e2    
+
+
   and manage_assign out env d e =
     (match d with
     |Arr (id, i) -> fprintf  out "%s.(" id;  prodcode out env  i; print out ") <- "
@@ -136,14 +235,22 @@ let precompile (e:expr) out  =
     );
     prodcode out env  e
     (*Génération de la ligne de code pour la construction probabiliste*)
+
+
   and  gen_prob_cstr expr env p= 
   (match p with
     | Assume -> print out "assume " 
     | Infer -> print out "infer 10000 " 
     | Factor -> print out "factor "
-    | Sample -> print out "sample " (*La suite immédiate doit être une distribution*)
+    | Sample -> print out "sample "; if not (is_dist env expr) then failwith "Sample utilisé avec un objet qui n'est pas une distribution" (*La suite immédiate doit être une distribution*)
     ); prodcode out env  expr;  print out ";"
+
+
+
   in
+
+
+
   (* Tableau des variables -> type *)
   let ic = open_in "templates/general2.mlt" in
   let s = really_input_string ic (in_channel_length ic) in
@@ -153,6 +260,9 @@ let precompile (e:expr) out  =
   Hashtbl.add env "File" (OtherSetting "general2");
   Hashtbl.add env "Metro" (SetMetroComp((<=)));
   Hashtbl.add env "Infer" (SetInferSamples(1000));
+  Hashtbl.add env "Method" (OtherSetting "undef");
+  Hashtbl.add env "Scope" (Scope []);
+  Hashtbl.add env "Loc" (Loc None);
   prodcode out env  e
 ;;
 
