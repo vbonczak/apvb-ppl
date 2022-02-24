@@ -248,7 +248,7 @@ end
                                
 
 
-module MH_MS = struct
+module MH_Multi = struct
 
   let sample d = d.sample();;
   
@@ -268,7 +268,24 @@ module MH_MS = struct
 
   end
                  
-               
+module MH_Single = struct (* Assume all samples return type float. *)
+
+  type location = Decl of nat (* Which declaration in a sequence of instructions without for or if *)
+                | If of bool * location
+                | For of nat * location
+  (* Describes where a variable is located in the code so as to distinguish different instructions of the form "let x = sample ..." *)
+  
+  type variable = string * location (* name and location *)
+
+  type graph_of_vars = variable list * variable list list (* Vertices (variables) and edges (dependencies) *)
+
+  let sample v variables d = (* v is the name of a variable*)
+                     
+  let infer n first_f resample_f score = (* first_f executes all samples in the function, resample_f resamples one variable and all its dependencies. They both return the value of the sample for each variable. *)
+    let x, variables_and_samples = first_f() in (* variables_and_samples is of type (variable * float) list *)
+    let w0 = score x in
+let rec aux n 
+  end
 
 
                  
