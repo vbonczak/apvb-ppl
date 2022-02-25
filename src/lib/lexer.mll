@@ -38,6 +38,7 @@ rule read =
   | "&&" { OPAND } 
   | "|" { PIPE } 
   | "()" {UNIT}
+  | "<<" {LEFTLEFT}
   | ":=" { ASSIGN }
   | "(" { LEFTPAR }
   | ")" { RIGHTPAR }
@@ -70,7 +71,8 @@ rule read =
   | "to"{TO}
   | "do"{DO}
   | "done"{DONE}
-
+  
+  | "count" {SET_COUNT}
   | "print" {PRINT}
   | "endif" { ENDIF }
   | "then" { THEN }

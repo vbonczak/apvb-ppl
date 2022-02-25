@@ -12,6 +12,7 @@ open Ast
 %token EOL
 %token SEMICOLON
 %token COLON
+%token LEFTLEFT
 %token POINT
 
 %token LET
@@ -80,6 +81,7 @@ open Ast
 %nonassoc LEFTBR   LEFTPAR   POINT
 
 %nonassoc IF
+%nonassoc LEFTLEFT
 %nonassoc FOR 
 
 %nonassoc ASSIGN
@@ -96,8 +98,7 @@ open Ast
 %right OPAND
 
 %nonassoc UNIT
-%nonassoc Unit
-%nonassoc Count
+%nonassoc Unit 
 %%
 
 prog:
@@ -111,8 +112,7 @@ expr:
   | IF e = expr THEN EOL* ets = list(seq)  EOL* ELSE EOL* efs = list(seq)  EOL* ENDIF { If(e, ast_of_list ets, ast_of_list efs) }
   | FOR x=ID EQUALS vmin=expr TO vmax=expr DO EOL* xs =list(seq) EOL* DONE {For(x,vmin,vmax,ast_of_list xs)}
   | LEFTBR l = separated_list(SEMICOLON, listel) RIGHTBR { Liste(l) }
-  
-  | SET_COUNT x = INT %prec Count { Setting("Infer", x) }
+  | SET_COUNT LEFTLEFT x = INT { Setting("Infer", x) } 
   | e1 = expr op = binop e2 = expr %prec Binop { Binop(op, e1, e2) }
   | e = expr e2 = expr  %prec Application {App(e,e2)}
   | LEFTPAR e = expr RIGHTPAR { Paren e }
