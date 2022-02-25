@@ -286,18 +286,18 @@ module MH_Multi = struct
     in aux (n-1) x w0
   ;;
 
-  end
-                 
+end
+
+type location = LDecl of int (* Which declaration in a sequence of instructions without for or if *)
+              | LIf of bool * location
+              | LFor of int * location
+(* Describes where a variable is located in the code so as to distinguish different instructions of the form "let x = sample ..." *)
+  
+type variable = string * location (* name and location *)
+                
 module MH_Single = struct (* Assume all samples return type float. *)
 
   let sampled_variables = ref [];;
-
-  type location = Decl of nat (* Which declaration in a sequence of instructions without for or if *)
-                | If of bool * location
-                | For of nat * location
-  (* Describes where a variable is located in the code so as to distinguish different instructions of the form "let x = sample ..." *)
-  
-  type variable = string * location (* name and location *)
 
   let sample v d = (* v is a variable, d is a distribution *)
     let rec aux l = match l with
@@ -312,21 +312,18 @@ module MH_Single = struct (* Assume all samples return type float. *)
     let rec remove_deps vars dep_list = (* Removes all variables that depend on an element in dep_list *)
       match vars with
       |[] -> []
-      |(x,deps,a)::vars2 -> let rec aux deps = match deps with (* If x is in deps we remove it and proceed with vars2, otherwise we keep it. *)
+      |(x,x_deps,a)::vars2 -> let rec aux deps = match deps with (* If x is in deps we remove it and proceed with vars2, otherwise we keep it. *)
                          |[] -> (x,a)::(remove_deps vars2 dep_list)
-                         |y::_ when y = x -> remove_deps vars2 (deps@dep_list) (* If x needs to be removed, we also want those depending on x to be removed. *)
+                         |y::_ when y = x -> remove_deps vars2 ((!x_deps)@dep_list) (* If x needs to be removed, we also want those depending on x to be removed. *)
                          |_::deps2 -> aux deps2
                        in
                        aux dep_list
     in
     let n = List.length var_and_samps in
     let i = (uniform_int n).sample() in (* index of the variable in var_and_samps that we will resample *)
-    remove_deps var_and_samps [List.nth var_and_samps i]
+    let (var_to_resample,_,_) = List.nth var_and_samps i in
+    remove_deps var_and_samps [var_to_resample]
   ;;
-  
-                       
-      
-      |a::vars2, _ -> let vars3 = remove_deps vars2 dep_list in a::vars3
   
   let infer n f score =
     let x, variables_and_samples = f() in (* f() returns the expected result of f, but also a list containing, for each distinct variable x (may be the same name at a different location) encountered, the triple (x, variables that depend on x, value of x) *)
@@ -343,5 +340,5 @@ module MH_Single = struct (* Assume all samples return type float. *)
     in aux (n-1) x w0 variables_and_samples
   ;;
 
-
+end
                  

@@ -57,7 +57,7 @@ let print_ast out e =
     |Method(m) -> print out @@ "Nous utilisons ci-dessous la méthode '"^m^"'"
     |Print(t, s) -> (
       match t with 
-      |Distrib -> print out @@ "Visualisation de la distribution"^s;print_ret out
+      |Distrib -> print out @@ "Visualisation de la distribution "^s;print_ret out
       |Text -> fprintf out "Affichage de \"%s\"\n" s
     )
     |Nop -> fprintf out "Nop"

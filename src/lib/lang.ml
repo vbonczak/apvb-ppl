@@ -190,7 +190,7 @@ List.iter
             let info = find_random_variable env var in
                 (*On va naturellement remplacer la dernière arrivée*)
                 Hashtbl.replace env var (VarInfo(vartype_VarInfo_loc info , x::(vartype_VarInfo_deps info))) ;
-                fprintf out "\ndeps__%s := (\"%s\",%s)::!deps_%s;\n" var x (print_loc xloc) var 
+                fprintf out "\ndeps__%s := (\"%s\",%s)::!deps__%s;\n" var x (print_loc xloc) var 
           with Not_found -> ())
 (*Liste*) to_which_vars
         ;;
@@ -200,7 +200,7 @@ List.iter
 
 (*Place pour chaque variable x = let ... le deps__x et membre_retour_sans_deps__x dans la liste de retour*)
 let populate_liste_retour out var = 
-  fprintf out "\nliste_retour := (fst membre_retour_sans_deps__%s, deps__%s, snd membre_retour_sans_deps__%s)::!liste_retour;\n" var var var
+  fprintf out "\nliste__retour := (fst membre_retour_sans_deps__%s, deps__%s, snd membre_retour_sans_deps__%s)::!liste__retour;\n" var var var
 ;;
 
 let wrap_args = 
@@ -264,19 +264,22 @@ let precompile (e:expr) out  =
    
     (if is_smetropolis env then begin
       match l with
-      |[] -> (*Pas une fonction ! (*si MetroSingle, y a t-il des VA dans l'expression?*)*)  
-        let vas = get_random_variables_in env e in (* Les VA dont dépend x *)
-        if (List.length vas > 0) then
-          begin
-            let curloc = locopt_of_loc (Hashtbl.find env "Loc") in
-            let xloc = add_var_in_table env x curloc in (*Ajout de x dans les variables aléatoires donc TODO quelle est sa loc?*)
-            add_to_deps env out x xloc vas
-          end
+      |[] -> (*Pas une fonction ! (*si MetroSingle, y a t-il des VA dans l'expression?*)*)
+        begin
+          let vas = get_random_variables_in env e in (* Les VA dont dépend x *)
+          if (List.length vas > 0) then
+            begin
+              let curloc = locopt_of_loc (Hashtbl.find env "Loc") in
+              let xloc = add_var_in_table env x curloc in (*Ajout de x dans les variables aléatoires donc TODO quelle est sa loc?*)
+              add_to_deps env out x xloc vas
+            end;
+          fprintf out "let %s %s = "  x (wrap_args l) ;
+        end
       |_ -> (*fonction*)
       (*Une fonction avec metro single*)
       fprintf out "let sample__%s %s = \n"  x (wrap_args l) ;
       print out "\nlet liste__retour = ref [] in (*Liste à renvoyer par first de ((var, loc), deps, valeur samplée)*)\n";
-      fprintf out "let resultat__%s = (fun liste_retour %s -> \n" x (wrap_args l)
+      fprintf out "let resultat__%s = (fun %s -> \n" x (wrap_args l)
     end
     else
       fprintf out "let %s %s = "  x (wrap_args l) ;
@@ -285,7 +288,7 @@ let precompile (e:expr) out  =
     match l with
     |[] -> if x <> "_" then print out " in\n"
     |_ when is_smetropolis env -> (*populate_liste_retour out env e;*)
-      fprintf out "\n) liste__retour  %s in\n(resultat__%s, liste_retour)\n;;\n" (wrap_args l) x;(*Une fonction : on donne les variantes first_f et resample_f qui vont retourner 
+      fprintf out "\n) %s in\n(resultat__%s, !liste__retour)\n;;\n" (wrap_args l) x;(*Une fonction : on donne les variantes first_f et resample_f qui vont retourner 
     le tableau des variables associées à leur emplacement et les variables qui en dépendent*) 
      (* fprintf out "\nlet first_%s = " x; smetro_generate_first_variant out env e; print out ";;\n";
 
@@ -373,7 +376,7 @@ fprintf out "(*Portée en VA dans tout le if true : %s*)\n" (List.fold_left (fun
     (*Rétablissement du scope avant le then*)
     Hashtbl.replace env  "Scope" (Scope cur_scope_avant_then);
 
-    print out "\n end\n else begin\n"; (*false*)
+    print out "\n end;\n else begin\n"; (*false*)
     let loc_false = (if is_none curloc  
       then (*Toplevel*) LIf(false, LDecl (-1)) (*-1 = représente un truc vide (informel)*)
       else (*Imbriqué*) loc_pushback (LIf(false, LDecl (-1)))  (Option.get curloc)
@@ -388,7 +391,7 @@ fprintf out "(*Portée en VA dans tout le if false : %s*)\n" (List.fold_left (fu
     (*Ajout dans le retour de tout ce qui est traité dans cette branche*)
     (* populate_liste_retour out env faux; *)
 
-    print out "\nend\n";
+    print out "\nend;\n";
 
     (*Nettoyage de la table*)
     filter_hashtable env loc_false; (*False ou true, pareil comme seul l'un des deux existe de tte façon*)
@@ -402,7 +405,7 @@ fprintf out "(*Portée en VA dans tout le if false : %s*)\n" (List.fold_left (fu
     if not (is_dist env e) then failwith "Sample utilisé avec un objet qui n'est pas une distribution"; (*La suite immédiate doit être une distribution*)
     let curloc = locopt_of_loc (Hashtbl.find env "Loc") in
     let xloc = add_var_in_table env x curloc in (*Ajout de x dans les variables aléatoires*)
-    fprintf out "let %s = sample \"%s\" (%s) " x x  (print_loc xloc);
+    fprintf out "let %s = sample (\"%s\", (%s)) " x x  (print_loc xloc);
     
     prodcode out env e;
     let v = find_random_variable env x in 
