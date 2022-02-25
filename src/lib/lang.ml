@@ -199,12 +199,9 @@ List.iter
 (* let print_litteral_list out l = print out "["; List.iteri (fun idx e -> (if idx > 0 then print out "; "); fprintf out "\"%s\"" e ; ) l; print out "]";; *)
 
 (*Place pour chaque variable x = let ... le deps__x et membre_retour_sans_deps__x dans la liste de retour*)
-let populate_liste_retour out env expr = 
-  List.iter 
-    (fun var -> 
-      fprintf out "\nliste_retour := (fst membre_retour_sans_deps__%s, deps__%s, snd membre_retour_sans_deps__%s)::!liste_retour;\n" var var var
-    )
-    (get_random_variables_in  env expr)
+let populate_liste_retour out var = 
+  fprintf out "\nliste_retour := (fst membre_retour_sans_deps__%s, deps__%s, snd membre_retour_sans_deps__%s)::!liste_retour;\n" var var var
+;;
 
 let wrap_args = 
   List.fold_left (
@@ -265,13 +262,9 @@ let precompile (e:expr) out  =
 
   and manage_let out env x l e = 
    
-    fprintf out "let %s%s %s = " (if is_smetropolis env && List.length l > 0 then "let sample__" else "") x (wrap_args l) ;
-    
-    (*si MetroSingle, y a t-il des VA dans l'expression?*)
-    if (is_smetropolis env) then begin
+    (if is_smetropolis env then begin
       match l with
-      |[] -> (*Pas une fonction !*)  
-      
+      |[] -> (*Pas une fonction ! (*si MetroSingle, y a t-il des VA dans l'expression?*)*)  
         let vas = get_random_variables_in env e in (* Les VA dont dépend x *)
         if (List.length vas > 0) then
           begin
@@ -280,14 +273,19 @@ let precompile (e:expr) out  =
             add_to_deps env out x xloc vas
           end
       |_ -> (*fonction*)
-      print out "\nlet liste_retour = ref [] in (*Liste à renvoyer par first de ((var, loc), deps, valeur samplée)*)\n";
-    end;
-
-    prodcode out env  e; 
+      (*Une fonction avec metro single*)
+      fprintf out "let sample__%s %s = \n"  x (wrap_args l) ;
+      print out "\nlet liste__retour = ref [] in (*Liste à renvoyer par first de ((var, loc), deps, valeur samplée)*)\n";
+      fprintf out "let resultat__%s = (fun liste_retour %s -> \n" x (wrap_args l)
+    end
+    else
+      fprintf out "let %s %s = "  x (wrap_args l) ;
+    );
+    prodcode out env  e; (*Corps de la fonction*)
     match l with
     |[] -> if x <> "_" then print out " in\n"
-    |_ when is_smetropolis env -> populate_liste_retour out env e;
-      fprintf out "in\n(resultat__%s, liste_retour)\n;;\n" x;(*Une fonction : on donne les variantes first_f et resample_f qui vont retourner 
+    |_ when is_smetropolis env -> (*populate_liste_retour out env e;*)
+      fprintf out "\n) liste__retour  %s in\n(resultat__%s, liste_retour)\n;;\n" (wrap_args l) x;(*Une fonction : on donne les variantes first_f et resample_f qui vont retourner 
     le tableau des variables associées à leur emplacement et les variables qui en dépendent*) 
      (* fprintf out "\nlet first_%s = " x; smetro_generate_first_variant out env e; print out ";;\n";
 
@@ -368,7 +366,7 @@ fprintf out "(*Portée en VA dans tout le if true : %s*)\n" (List.fold_left (fun
      *)
 
     (*Ajout dans le retour de tout ce qui est traité dans cette branche*)
-    populate_liste_retour out env vrai;
+    (* populate_liste_retour out env vrai; *)
 
     (*Nettoyage de la table*)
     filter_hashtable env loc_true;
@@ -388,7 +386,7 @@ fprintf out "(*Portée en VA dans tout le if false : %s*)\n" (List.fold_left (fu
      *)
 
     (*Ajout dans le retour de tout ce qui est traité dans cette branche*)
-    populate_liste_retour out env faux;
+    (* populate_liste_retour out env faux; *)
 
     print out "\nend\n";
 
@@ -402,7 +400,7 @@ fprintf out "(*Portée en VA dans tout le if false : %s*)\n" (List.fold_left (fu
   
   and manage_metro_let out env x e =
     if not (is_dist env e) then failwith "Sample utilisé avec un objet qui n'est pas une distribution"; (*La suite immédiate doit être une distribution*)
-      let curloc = locopt_of_loc (Hashtbl.find env "Loc") in
+    let curloc = locopt_of_loc (Hashtbl.find env "Loc") in
     let xloc = add_var_in_table env x curloc in (*Ajout de x dans les variables aléatoires*)
     fprintf out "let %s = sample \"%s\" (%s) " x x  (print_loc xloc);
     
@@ -410,7 +408,7 @@ fprintf out "(*Portée en VA dans tout le if false : %s*)\n" (List.fold_left (fu
     let v = find_random_variable env x in 
     fprintf out " in\n let deps__%s = ref [] in 
     let membre_retour_sans_deps__%s = ((\"%s\", %s), %s) in\n" x x x (print_loc (vartype_VarInfo_loc v)) x;(*deps se remplit à l'exécution*)
- 
+    populate_liste_retour out x;
     (*Par contre, x dépend des variables dans notre scope ? *)
     add_to_deps env out x xloc  (find_vars e); (*ajout de x dans les variables dépendant de var, car var est dans les arguments du sample*)
     
