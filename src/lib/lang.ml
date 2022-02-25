@@ -147,13 +147,49 @@ let add_var_in_table table variable where =
       , [])); (*Personne ne dépend de x pour l'instant*)
         ;;
   (*Cette valeur va masquer dans la table les autres déclarations précédemment traitées.*)
+  
+  let is_random_variable env var =if Hashtbl.mem env var then 
+    begin
+      match Hashtbl.find env var with |VarInfo(_) -> true|_->false
+    end
+  else false
+  ;;
 
- 
+ let get_random_variables_in env e =
+  List.filter (fun v -> is_random_variable env v) (find_vars e);;
 
   (*Recherche si la variable est une VA, retourne not found sinon*)
-let find_random_variable env var =  Hashtbl.find env var ;;
+let find_random_variable env var =
+  let r = Hashtbl.find env var in
+  match r with 
+  |VarInfo _ -> r
+  |_ -> raise Not_found
+;;
 
-let is_random_variable env var = Hashtbl.mem env var;;
+(*Ajoute x dans les deps de toutes les VA dans to_which_vars*)
+let add_to_deps env out x to_which_vars =  
+List.iter    
+(*f*)    (fun var -> 
+          try 
+            let info = find_random_variable env var in
+                (*On va naturellement remplacer la dernière arrivée*)
+                Hashtbl.replace env var (VarInfo(vartype_VarInfo_loc info , x::(vartype_VarInfo_deps info))) ;
+                fprintf out "\ndeps__%s := \"%s\"::!deps_%s;\n" var x var 
+          with Not_found -> ())
+(*Liste*) to_which_vars
+        ;;
+
+
+(* let print_litteral_list out l = print out "["; List.iteri (fun idx e -> (if idx > 0 then print out "; "); fprintf out "\"%s\"" e ; ) l; print out "]";; *)
+
+(*Place pour chaque variable x = let ... le deps__x et membre_retour_sans_deps__x dans la liste de retour*)
+let populate_liste_retour out env expr = 
+  List.iter 
+    (fun var -> 
+      fprintf out "\nliste_retour := (fst membre_retour_sans_deps__%s, deps__%s, snd membre_retour_sans_deps__%s)::!liste_retour;\n" var var var
+    )
+    (get_random_variables_in  env expr)
+
 
 (* Production d'un fichier OCaml à partir de notre langage *)
 let precompile (e:expr) out  = 
@@ -163,105 +199,22 @@ let precompile (e:expr) out  =
   |Real(i) -> fprintf out "%f" i
   |Arr(id, e) -> fprintf out "%s.(" id; prodcode out env  e; print out ")"
   |Unit -> print out "()"
-  |Liste(l) -> print out "["; List.iteri (fun idx e -> (if idx > 0 then print out "; "); prodcode out env  e; ) l; print out "]"
+  |Liste(l) -> print_list out env l
   |Paren e -> print out "("; prodcode out env  e; print out ")" 
   |App(a,b) -> prodcode out env  a; print out "  "; prodcode out env  b;print out "  ";
   |Binop(op, e1, e2) -> manage_binop out env e1 e2 op
   |Cond(c, e1, e2) -> manage_condition out env e1 e2 c
   (*Pour métropolis*)
-  |Let(x,[], Proba(Sample, e)) when is_smetropolis env ->  
-    fprintf out "let %s = sample \"%s\" " x x;
-    let curloc = locopt_of_loc (Hashtbl.find env "Loc") in
-    add_var_in_table env x curloc; (*Ajout de x dans les variables aléatoires*)
-    fprintf out "(* LOC(%s) = %s *)\n" x (print_loc (vartype_VarInfo_loc (Hashtbl.find env x)));
-    
-    (*Par contre, x dépend des variables dans notre scope ? *)
-    List.iter    
-        (*f*)    (fun var -> try 
-         let info = find_random_variable env var in
-    
- 
-                              Hashtbl.replace env var (VarInfo(vartype_VarInfo_loc info , x::(vartype_VarInfo_deps info))) 
-                            with Not_found -> ()
-                              
-                              )
-                              (*On va naturellement remplacer la dernière arrivée*)
-        (*liste*)(find_vars e); (*ajout de x dans les variables dépendant de var, car var est dans les arguments du sample*)
-
-    
-    prodcode out env e; (*let x = sample e*)
-    (*Le let ne se "referme" jamais de son initiative (voir le cas du if à ce sujet)*)
-
-    print out " in\n"
-    
-    (* |If( *** Proba(Sample, e) *** , vrai, faux) when is_smetropolis env -> 
-      prodcode out env (Seq(Let("if__var",[], Proba(Sample, e)),
-        If(Var "if__var")) *)   (*TODO gestion du if avec un sample*)
-  |If(e, vrai, faux) when is_smetropolis env -> 
-    print out "if "; 
-    prodcode out env  e; 
-
-    (*Les variables aléatoires dont dépend l'expression cond*)
-    let vas = List.filter (fun v -> is_random_variable env v) (find_vars e) in 
-    (*Sauvegarde de notre scope*)
-    let cur_scope = list_of_scope (Hashtbl.find env  "Scope") in
-    Hashtbl.replace env "Scope" (Scope (vas@cur_scope)); (*Ajout des VA dans e dans le contexte de dépendance actuel*)
-    (*location actuel*)
-    let curloc = locopt_of_loc (Hashtbl.find env "Loc") in
-
-    
-
-    print out "then begin\n"; (*true*)
-    (*DEBUG*)
-    fprintf out "\n(*Portée en VA dans tout le if : %s*)\n" (List.fold_left (fun a b -> a^" "^b) "" (list_of_scope(Hashtbl.find env "Scope")));
-    let loc_true = (if is_none curloc  
-      then (*Toplevel*) LIf(true, LDecl (-1)) (*-1 = représente un truc vide (informel)*)
-      else (*Imbriqué*) loc_pushback (LIf(true, LDecl (-1)))  (Option.get curloc)
-    ) in
-    Hashtbl.replace env "Loc" (Loc (Some loc_true)); (*mise à jour de la loc actuelle*)
-    prodcode out env vrai;     (* Traitement de la branche true *)
-
-    (*Nettoyage de la table*)
-    filter_hashtable env loc_true;
-    (*Rétablissement du scope avant le then*)
-    Hashtbl.replace env  "Scope" (Scope cur_scope);
-
-    print out "\n end\n else begin\n"; (*false*)
-    let loc_false = (if is_none curloc  
-      then (*Toplevel*) LIf(false, LDecl (-1)) (*-1 = représente un truc vide (informel)*)
-      else (*Imbriqué*) loc_pushback (LIf(false, LDecl (-1)))  (Option.get curloc)
-    ) in
-    Hashtbl.replace env "Loc" (Loc (Some loc_false)); (*mise à jour de la loc actuelle, autre choix*)
-    prodcode out env faux; print out "\nend\n";
-    
-    (*Nettoyage de la table*)
-    filter_hashtable env loc_false; (*False ou true, pareil comme seul l'un des deux existe de tte façon*)
-
-    (*Rétablissement du scope avant le else*)
-    Hashtbl.replace env  "Scope" (Scope cur_scope);
-    (*et de la loc*)
-    Hashtbl.replace env "Loc" (Loc (curloc));
+  |Let(x,[], Proba(Sample, e)) when is_smetropolis env ->  manage_metro_let out env x e
   (* |For(x,vmin,vmax,body)  when is_smetropolis env -> fprintf out "for %s = " x; prodcode out env  vmin; print out " to "; prodcode out env  vmax; print out " do\n";
     (*Corps de boucle TOTO single metro*) prodcode out env  body;
-                    print out "\ndone;\n"; *)
-
+                  print out "\ndone;\n"; *)
+  (* |If( *** Proba(Sample, e) *** , vrai, faux) when is_smetropolis env -> 
+    prodcode out env (Seq(Let("if__var",[], Proba(Sample, e)),
+      If(Var "if__var")) *)   (*TODO gestion du if avec un sample*)
+  |If(e, vrai, faux) when is_smetropolis env -> manage_metro_if out env e vrai faux
   (*les autres*)
-  |Let(x,l,e) -> fprintf out "let %s %s = " x (List.fold_left (
-    fun a b -> a^" "^(match b with 
-                |Var(x)-> x
-                |Unit->" () "
-                |_-> failwith "Erreur dans un let, l'objet n'est ni un identificateur ni ()."
-              ) 
-            ) "" l) ;
-    prodcode out env  e; 
-    (match l with
-    |[] -> if x <> "_" then print out "in\n"
-    |_ when is_smetropolis env (*Une fonction : on donne les variantes first_f et resample_f qui vont retourner 
-    le tableau des variables associées à leur emplacement et les variables qui en dépendent*) ->
-      fprintf out "\nlet first_%s = " x; smetro_generate_first_variant out env e; print out ";;\n";
-
-      fprintf out "\nlet resample_%s = " x; smetro_generate_resample_variant out env e; print out ";;\n"
-    |_ -> print out "\n"; )
+  |Let(x,l,e) -> manage_let out env x l e
   |If(e,v,f) -> print out "if "; prodcode out env  e; print out "then begin\n";prodcode out env  v;
                 print out "\n end\n else begin\n"; prodcode out env  f;print out "\nend\n"
   |For(x,vmin,vmax,body) -> fprintf out "for %s = " x; prodcode out env  vmin; print out " to "; prodcode out env  vmax; print out " do\n";
@@ -270,7 +223,7 @@ let precompile (e:expr) out  =
   |Assign(d, e) -> manage_assign out env d e
   |Dist(s, e) -> fprintf out "let %s = " s; 
                       Hashtbl.add env s Distribution; (* Le type de s est distribution *)
-                      prodcode out env  e; print out "in\n"
+                      prodcode out env  e; print out " in\n"
   |String(s) -> fprintf out "\"%s\"" s
   |Proba(p, e) ->  gen_prob_cstr e env p 
   |Seq(e1,e2) -> prodcode out env  e1; (match e1 with
@@ -282,25 +235,64 @@ let precompile (e:expr) out  =
   |Nop -> ()
 
 
+  (*Fonctions auxiliaires*)
+
+
+  and manage_let out env x l e = 
+    fprintf out "let %s %s = " x (List.fold_left (
+    fun a b -> a^" "^(match b with 
+                |Var(x)-> x
+                |Unit->" () "
+                |_-> failwith "Erreur dans un let, l'objet n'est ni un identificateur ni ()."
+              ) 
+            ) "" l) ;
+    
+    (*si MetroSingle, y a t-il des VA dans l'expression?*)
+    if (is_smetropolis env) then begin
+      match l with
+      |[] -> (*Pas une fonction !*)  
+      
+        let vas = get_random_variables_in env e in (* Les VA dont dépend x *)
+        if (List.length vas > 0) then
+          begin
+            let curloc = locopt_of_loc (Hashtbl.find env "Loc") in
+            add_var_in_table env x curloc; (*Ajout de x dans les variables aléatoires donc*)
+            add_to_deps env out x vas
+          end
+      |_ -> (*fonction*)
+      print out "\nlet liste_retour = ref [] in (*Liste à renvoyer par first de ((var, loc), deps, valeur samplée)*)\n";
+    end;
+
+    prodcode out env  e; 
+    match l with
+    |[] -> if x <> "_" then print out " in\n"
+    |_ when is_smetropolis env ->   
+      print out "\n, liste_retour\n";(*Une fonction : on donne les variantes first_f et resample_f qui vont retourner 
+    le tableau des variables associées à leur emplacement et les variables qui en dépendent*) 
+     (* fprintf out "\nlet first_%s = " x; smetro_generate_first_variant out env e; print out ";;\n";
+
+      fprintf out "\nlet resample_%s = " x; smetro_generate_resample_variant out env e; print out ";;\n"*)
+    |_ -> print out "\n"
+
   and manage_condition out env e1 e2 c =   prodcode out env  e1; (match c with
-  | LT  -> print out " < " 
-  | Leq -> print out " <= " 
-  | Eq  -> print out " = ")
-    ; prodcode out env  e2
+    | LT  -> print out " < " 
+    | Leq -> print out " <= " 
+    | Eq  -> print out " = ")
+      ; prodcode out env  e2
 
 
   and manage_binop out env e1 e2 c =   prodcode out env  e1; (match c with
-  | BAnd -> print out " && " 
-  | BOr ->print out " || " 
-  | Add -> print out " + " 
-  | Sub -> print out " - " 
-  | Mult -> print out " * "
-  |  Div  ->  print out " / "
-  | AddF -> print out " +. " 
-  | SubF -> print out " -. " 
-  | MultF -> print out " *. "
-  |  DivF  ->  print out " /. ")
-    ; prodcode out env  e2    
+    | BAnd -> print out " && " 
+    | BOr ->print out " || " 
+    | Add -> print out " + " 
+    | Sub -> print out " - " 
+    | Mult -> print out " * "
+    |  Div  ->  print out " / "
+    | AddF -> print out " +. " 
+    | SubF -> print out " -. " 
+    | MultF -> print out " *. "
+    |  DivF  ->  print out " /. ")
+      ; prodcode out env  e2    
 
 
   and manage_assign out env d e =
@@ -322,11 +314,86 @@ let precompile (e:expr) out  =
     ); 
     prodcode out env  expr;  print out ";"
 
-(*Pour Metropolis, génération du CORPS des fonctions associées (le let first_ est déjà écrit, ainsi que le ;; à la fin)*)
-  and smetro_generate_first_variant out env e = 
+  and print_list out env l = print out "["; List.iteri (fun idx e -> (if idx > 0 then print out "; "); prodcode out env  e; ) l; print out "]"
+
+  and manage_metro_if out env e vrai faux = 
+    print out "if "; 
+    prodcode out env  e; 
+
+    (*Les variables aléatoires dont dépend l'expression cond*)
+    let vas = get_random_variables_in env e in 
+    (*Sauvegarde de notre scope*)
+    let cur_scope = list_of_scope (Hashtbl.find env  "Scope") in
+    Hashtbl.replace env "Scope" (Scope (vas@cur_scope)); (*Ajout des VA dans e dans le contexte de dépendance actuel*)
+    (*location actuel*)
+    let curloc = locopt_of_loc (Hashtbl.find env "Loc") in
+
+  
+
+    print out " then begin\n"; (*true*)
+    (*DEBUG*)
+    fprintf out "\n(*Portée en VA dans tout le if : %s*)\n" (List.fold_left (fun a b -> a^" "^b) "" (list_of_scope(Hashtbl.find env "Scope")));
      
-    prodcode out env e (*todo ajouter pour le cas des let, un ajout dans la liste*)
-  and smetro_generate_resample_variant out env e = prodcode out env e
+
+     let loc_true = if is_none curloc  
+      then (*Toplevel*) LIf(true, LDecl (-1)) (*-1 = représente un truc vide (informel)*)
+      else (*Imbriqué*) loc_pushback (LIf(true, LDecl (-1)))  (Option.get curloc)
+     in
+    Hashtbl.replace env "Loc" (Loc (Some loc_true)); (*mise à jour de la loc actuelle*)
+    prodcode out env vrai;     (* Traitement de la branche true *)
+
+    (*Ajout dans le retour de tout ce qui est traité dans cette branche*)
+    populate_liste_retour out env vrai;
+
+    (*Nettoyage de la table*)
+    filter_hashtable env loc_true;
+    (*Rétablissement du scope avant le then*)
+    Hashtbl.replace env  "Scope" (Scope cur_scope);
+
+    print out "\n end\n else begin\n"; (*false*)
+    let loc_false = (if is_none curloc  
+      then (*Toplevel*) LIf(false, LDecl (-1)) (*-1 = représente un truc vide (informel)*)
+      else (*Imbriqué*) loc_pushback (LIf(false, LDecl (-1)))  (Option.get curloc)
+    ) in
+    Hashtbl.replace env "Loc" (Loc (Some loc_false)); (*mise à jour de la loc actuelle, autre choix*)
+    prodcode out env faux; print out "\nend\n";
+    
+    (*Ajout dans le retour de tout ce qui est traité dans cette branche*)
+    populate_liste_retour out env faux;
+
+    (*Nettoyage de la table*)
+    filter_hashtable env loc_false; (*False ou true, pareil comme seul l'un des deux existe de tte façon*)
+
+    (*Rétablissement du scope avant le else*)
+    Hashtbl.replace env  "Scope" (Scope cur_scope);
+    (*et de la loc*)
+    Hashtbl.replace env "Loc" (Loc (curloc));
+  
+  and manage_metro_let out env x e =
+    fprintf out "let %s = sample \"%s\" " x x;
+    let curloc = locopt_of_loc (Hashtbl.find env "Loc") in
+    add_var_in_table env x curloc; (*Ajout de x dans les variables aléatoires*)
+    fprintf out "(* LOC(%s) = %s *)\n" x (print_loc (vartype_VarInfo_loc (Hashtbl.find env x)));
+    
+      
+    prodcode out env e;
+    let v = find_random_variable env x in 
+    fprintf out " in\n let deps__%s = ref [] in (*deps se remplit à l'exécution*)
+    let membre_retour_sans_deps__%s = ((\"%s\", %s), %s) in" x x x (print_loc (vartype_VarInfo_loc v)) x;
+ 
+    (*Par contre, x dépend des variables dans notre scope ? *)
+    add_to_deps env out x (find_vars e); (*ajout de x dans les variables dépendant de var, car var est dans les arguments du sample*)
+    (*Et les variables du scope*)
+    
+    add_to_deps env out x ( list_of_scope (Hashtbl.find env  "Scope") );
+    
+    prodcode out env e; (*let x = sample e*)
+    (*Le let ne se "referme" jamais de son initiative (voir le cas du if à ce sujet)*)
+
+    print out " in\n"
+ 
+
+  (*and smetro_generate_resample_variant out env e = prodcode out env e*)
   in
 
   (* Tableau des variables -> type *)
