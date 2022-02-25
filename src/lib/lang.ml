@@ -63,6 +63,7 @@ type vartype =
 | VarInfo of location * string list (*Location ci dessus et liste de variables qui en dépendent*)
 | Scope of string list (*Les variables dont on dépend à ce point du programme*)
 | Loc of location option (*Notre emplacement actuel, none = toplevel*)
+| DistAlias of string
 ;;
  
 
@@ -215,10 +216,19 @@ let wrap_args =
 
 let get_infer_count env = match Hashtbl.find env "Infer"  with |  IntSetting(n) -> n | _ -> 1000;;
 
+let dist_alias env x = match Hashtbl.find_opt env x with Some (DistAlias(s)) -> Some s | _ -> None;;
+
+let is_fun_random_var args =  List.nth args (List.length args - 1) = Unit  ;;
+
 (* Production d'un fichier OCaml à partir de notre langage *)
 let precompile (e:expr) out  = 
   let rec prodcode out env = function
-  |Var(v) -> print out v
+  |Var(v) -> 
+  if is_smetropolis env then
+  (match dist_alias env v with
+  |Some s -> print out s 
+  |_ -> print out v 
+  ) else   print out v 
   |Int(i) -> fprintf out "%d" i
   |Real(i) -> fprintf out "%f" i
   |Arr(id, e) -> fprintf out "%s.(" id; prodcode out env  e; print out ")"
@@ -278,11 +288,13 @@ let precompile (e:expr) out  =
             end;
           fprintf out "let %s %s = "  x (wrap_args l) ;
         end
-      |_ -> (*fonction*)
+      |_ when is_fun_random_var l -> (*fonction*)
       (*Une fonction avec metro single*)
       fprintf out "let sample__%s %s = \n"  x (wrap_args l) ;
+	  Hashtbl.add env x (DistAlias (sprintf "sample__%s" x));
       print out "\nlet liste__retour = ref [] in (*Liste à renvoyer par first de ((var, loc), deps, valeur samplée)*)\n";
       fprintf out "let resultat__%s = (fun %s -> \n" x (wrap_args l)
+	  | _ -> fprintf out "let %s %s = "  x (wrap_args l) ;
     end
     else
       fprintf out "let %s %s = "  x (wrap_args l) ;
@@ -290,7 +302,7 @@ let precompile (e:expr) out  =
     prodcode out env  e; (*Corps de la fonction*)
     match l with
     |[] -> if x <> "_" then print out " in\n"
-    |_ when is_smetropolis env -> (*populate_liste_retour out env e;*)
+    |_ when is_smetropolis env && is_fun_random_var l -> (*populate_liste_retour out env e;*)
       fprintf out "\n) %s in\n(resultat__%s, !liste__retour)\n;;\n" (wrap_args l) x;(*Une fonction : on donne les variantes first_f et resample_f qui vont retourner 
     le tableau des variables associées à leur emplacement et les variables qui en dépendent*) 
      (* fprintf out "\nlet first_%s = " x; smetro_generate_first_variant out env e; print out ";;\n";
