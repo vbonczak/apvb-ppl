@@ -89,4 +89,101 @@ Difficultés rencontrées, retour général sur le cours...
 
 Nous avons tenu à faire un langage différent de Caml (et plus simple, à l'image de WebPPL) mais cela nous a pris plus de temps que prévu.
 
+=======
+\documentclass[svgnames]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage[a4paper,margin=1in]{geometry}
+
+\usepackage{vincent} 
+\usepackage{listings}
+
+\lstset{
+basicstyle=\ttfamily,
+keywords = [1]{method},
+keywords=[2]{let,dist, if, then, else, endif,for,to,do,done},
+keywords=[3]{sample, infer,observe, print, factor},
+otherkeywords={% Operators
+    |, ->, !,^
+  },
+sensitive=true,  
+morecomment=[s]{(*}{*)}, 
+keepspaces=true,
+morestring=[b]",
+keywordstyle=[2]\color{blue},
+keywordstyle=[3]\color{DarkRed},
+keywordstyle=\color{violet},
+stringstyle=\color{DarkGreen},
+tabsize=4,
+showspaces=false,
+breaklines=true
+}
+ 
+
+\begin{document}
+
+\title{Un langage probabiliste basé sur Caml}
+
+\author{Adam Phillips, Vincent Bonczak}
+
+\date{MPRI 2021-2022}
+
+\maketitle
+
+\section{Travail réalisé}
+
+Nous avons implémenté le projet sous la forme d'un compilateur d'un langage simple vers l'OCaml, compilé avec une bibliothèque de fonctions d'inférence.
+Ce langage s'inspire de Caml pour les appels et les instructions de contrôle, en le simplifiant. Par exemple le programme suivant peut être utilisé pour compiler l'exemple \verb|funny_bernoulli| vu en cours :
+\begin{lstlisting}
+method Rejection
+
+let funny_bernoulli  () =  
+ let a = sample (bernoulli 0.5);
+ let b = sample (bernoulli 0.5);  
+ let c = sample (bernoulli 0.5); 
+assume (a=1||b=1)
+a+b+c
+;
+
+let _ = 
+print ".-- Funny Bernoulli, Basic Rejection Sampling --."
+dist d = infer funny_bernoulli;
+print d
+;
+\end{lstlisting}
+
+\bigskip
+
+Plusieurs constructions probabilistes comme \verb|assume| ou \verb|infer| sont supportées, ainsi qu'une fonction d'affichage rapide de résultats \verb|print|.
+
+Nous avons opté pour un langage à parser pour pouvoir faire du typage et de l'analyse statique (cependant par manque de temps nous n'avons implémenté que le typage simple, l'analyse statique s'étant révélée chronophage à développer).
+Le typage vérifie que l'on échantillonne bien une distribution par exemple (soit une des valeurs existantes dans le langage comme \verb|bernoulli| ou une distribution issue d'une inférence, introduite par le mot-clé \lstinline{dist}).
+
+
+
+\section{Metropolis-Hastings}
+
+L'inférence \emph{MultiSite} et \emph{SingleSite} est appelée   avec respectivement \lstinline{method MetroMulti}  et \lstinline{method MetroSingle}.
+
+
+Pendant le parcours du programme en entrée, on ajoute des instructions responsables du traçage des variables aléatoires échantillonnées.
+Afin de gérer les dépendances, les appels à \lstinline{sample} seront accompagnés du nom de la variable, et de la position de celle-ci dans le programme en cas de variables de même nom. La réflexion ainsi introduite sur notre langage permettra au \emph{runtime} Caml de savoir quelles variables rééchantillonner et suivre, dans le cas \emph{SingleSite}.
+
+Par exemple :
+
+
+Ces infos seront données à la fonction sample à chaque appel
+ainsi sample peut choisir de rééchantilloner les vars de son choix, selon si c'est first ou resample
+
+\section{La simulation}
+
+ 
+
+\section{Conclusion}
+ 
+
+Nous avons tenu à faire un langage différent de Caml (et plus simple, à l'image de WebPPL) mais cela nous a pris plus de temps que prévu.
+
 \end{document}
