@@ -93,6 +93,26 @@ let uniform a b =
   d
 ;;
 
+let uniform_int n = (* Random integer between 0 and n-1 *)
+  assert(n > 0);
+  let values = Array.init n (fun x -> x) in
+  let probs = Array.make n (1. /. (float_of_int n)) in
+  let support = {values = values;
+                 logits = Array.map log probs;
+                 probs = probs}
+  in
+  let sample () = int_of_float ((uniform 0. (float_of_int n)).sample()) in
+  let logpdf x = assert(x >= 0 && x <= n-1); support.logits.(x) in
+  let exp () = ((float_of_int n) -. 1.) /. 2. in
+  (*let var () = *)
+  let d = {support = None;
+           sample = sample;
+           logpdf = logpdf;
+           exp = Some exp;
+           var = None;
+          } in
+  d
+;;
 let rec remove x q = match q with (* This function returns q with occurences of x removed and the number of such values removed. *)
   |[] -> [], 0.
   |y::q when y=x -> let l, occs = remove x q in l, occs +. 1.
@@ -221,7 +241,7 @@ module Importance_sampling = struct
     in
   
     let sample () =
-      let p = Random.float 1. in (* Assume we split the interval [0,1] into length(prob) intervals, with interval i having length prob.(i). We then generate a random float between 0 and 1 and see which interval it falls in to generate a random value according to prob. *)
+      let p = (uniform 0. 1.).sample() in (* Assume we split the interval [0,1] into length(prob) intervals, with interval i having length prob.(i). We then generate a random float between 0 and 1 and see which interval it falls in to generate a random value according to prob. *)
       let i = ref 0 in
       let x = ref 0. in
       while p > !x +. support.probs.(!i) do x := !x +. support.probs.(!i); incr i; done;
@@ -260,7 +280,7 @@ module MH_Multi = struct
       |n -> begin
           let y = f() in
           let wi = score y in
-          let p = Random.float 1.
+          let p = (uniform 0. 1.).sample()in 
           if p *. w <= wi then aux (n-1) y wi else aux (n-1) x w;
         end
     in aux (n-1) x w0
@@ -270,6 +290,8 @@ module MH_Multi = struct
                  
 module MH_Single = struct (* Assume all samples return type float. *)
 
+  let sampled_variables = ref [];;
+
   type location = Decl of nat (* Which declaration in a sequence of instructions without for or if *)
                 | If of bool * location
                 | For of nat * location
@@ -277,15 +299,49 @@ module MH_Single = struct (* Assume all samples return type float. *)
   
   type variable = string * location (* name and location *)
 
-  type graph_of_vars = variable list * variable list list (* Vertices (variables) and edges (dependencies) *)
+  let sample v d = (* v is a variable, d is a distribution *)
+    let rec aux l = match l with
+      |[] -> d.sample() (* variable needs to be sampled from fresh *)
+      |(x, value)::_ when x = v -> value (* variable musn't be resampled *)
+      |_::l'-> aux l'
+    in
+    aux !sampled_variables
+  ;;
 
-  let sample v variables d = (* v is the name of a variable*)
-                     
-  let infer n first_f resample_f score = (* first_f executes all samples in the function, resample_f resamples one variable and all its dependencies. They both return the value of the sample for each variable. *)
-    let x, variables_and_samples = first_f() in (* variables_and_samples is of type (variable * float) list *)
+  let remove_random_var var_and_samps =
+    let rec remove_deps vars dep_list = (* Removes all variables that depend on an element in dep_list *)
+      match vars with
+      |[] -> []
+      |(x,deps,a)::vars2 -> let rec aux deps = match deps with (* If x is in deps we remove it and proceed with vars2, otherwise we keep it. *)
+                         |[] -> (x,a)::(remove_deps vars2 dep_list)
+                         |y::_ when y = x -> remove_deps vars2 (deps@dep_list) (* If x needs to be removed, we also want those depending on x to be removed. *)
+                         |_::deps2 -> aux deps2
+                       in
+                       aux dep_list
+    in
+    let n = List.length var_and_samps in
+    let i = (uniform_int n).sample() in (* index of the variable in var_and_samps that we will resample *)
+    remove_deps var_and_samps [List.nth var_and_samps i]
+  ;;
+  
+                       
+      
+      |a::vars2, _ -> let vars3 = remove_deps vars2 dep_list in a::vars3
+  
+  let infer n f score =
+    let x, variables_and_samples = f() in (* f() returns the expected result of f, but also a list containing, for each distinct variable x (may be the same name at a different location) encountered, the triple (x, variables that depend on x, value of x) *)
     let w0 = score x in
-let rec aux n 
-  end
+    let rec aux n x w var_and_samps = match n with
+      |0 -> x
+      |n -> begin
+          sampled_variables := remove_random_var var_and_samps;
+          let y, var_and_samps2 = f() in
+          let wi = score y in
+          let p = (uniform 0. 1.).sample() in
+          if p *. w <= wi then aux (n-1) y wi var_and_samps2 else aux (n-1) x w var_and_samps;
+        end
+    in aux (n-1) x w0 variables_and_samples
+  ;;
 
 
                  
