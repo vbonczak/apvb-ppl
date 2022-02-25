@@ -46,7 +46,7 @@ rule read =
   | ";" { SEMICOLON }
   | "," { COLON }
   | "<=" { OPLEQ }
-  | "=>" { OPGEQ }
+  | ">=" { OPGEQ }
   | "<" { OPLT }
   | ">" { OPGT }
   | "=" { EQUALS }
