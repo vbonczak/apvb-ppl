@@ -34,6 +34,27 @@ let bernoulli p =
   d
 ;;
 
+let bernoulli_f p = (* Same as bernoulli but of type float dist *)
+  assert(0. <= p && p <= 1.);
+  let values = [|0.; 1.|] in
+  let probs = [|1. -. p; p|] in
+  let support = {values = values;
+                 logits = Array.map log probs;
+                 probs = probs}
+  in
+  let sample () = if Random.float 1. <= p then 1. else 0. in
+  let logpdf x = assert(x = 0. || x = 1.); support.logits.(x) in
+  let exp () = p in
+  let var () = p *. (1. -. p) in
+  let d = {support = Some support;
+           sample = sample;
+           logpdf = logpdf;
+           exp = Some exp;
+           var = Some var;
+          } in
+  d
+;;
+
 let rec pow_int a n = match n with
   |0 -> 1
   |_ -> a * (pow_int a (n-1))
@@ -47,7 +68,7 @@ let rec pow_float a n = match n with
 let binomial p n =
   assert(0. <= p && p <= 1. && n >= 0);
   let values = Array.init (pow_int 2 n)
-                 (fun i -> Array.init n (fun j -> i mod (pow_int 2 j)))
+                 (fun i -> Array.init n (fun j -> i/(pow_int 2 j) mod 2))
   in
   (* Each element is an array containing a sequence of ones and zeroes, each element is the binary representation of the current index. *)
   let probs = Array.init (pow_int 2 n)
@@ -66,6 +87,40 @@ let binomial p n =
                  Array.iter (fun y -> assert(y = 0 || y = 1)) x;
                  let k = Array.fold_left (+) 0 x in
                  log ((pow_float p k) *. (pow_float (1. -. p) (n-k)))
+  in
+  let exp () = float_of_int n *. p in
+  let var () = float_of_int n *. p *. (1. -. p) in
+  let d = {support = Some support;
+           sample = sample;
+           logpdf = logpdf;
+           exp = Some exp;
+           var = Some var;
+          } in
+  d
+;;
+
+let binomial_f p n =
+  assert(0. <= p && p <= 1. && n >= 0);
+  let values = Array.init (pow_int 2 n)
+                 (fun i -> Array.init n (fun j -> float_of_int (i/(pow_int 2 j) mod 2))))
+  in
+  (* Each element is an array containing a sequence of ones and zeroes, each element is the binary representation of the current index. *)
+  let probs = Array.init (pow_int 2 n)
+                (fun i ->
+                  let k = Array.fold_left (+.) 0. (values.(i)) in
+                  (p**k) *. ((1. -. p) ** (float_of_int n -. k)))
+  in
+  let support = {values = values;
+                 logits = Array.map log probs;
+                 probs = probs;
+                } in
+  let sample () = Array.init n
+                    (fun _ -> if Random.float 1. <= p then 1. else 0.)
+  in
+  let logpdf x = assert(length x = n);
+                 Array.iter (fun y -> assert(y = 0. || y = 1.)) x;
+                 let k = Array.fold_left (+.) 0. x in
+                 log ((p**k) *. ((1. -. p)**(float_of_int n -. k)))
   in
   let exp () = float_of_int n *. p in
   let var () = float_of_int n *. p *. (1. -. p) in

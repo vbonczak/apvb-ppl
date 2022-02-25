@@ -379,7 +379,7 @@ fprintf out "(*Portée en VA dans tout le if true : %s*)\n" (List.fold_left (fun
     (*Rétablissement du scope avant le then*)
     Hashtbl.replace env  "Scope" (Scope cur_scope_avant_then);
 
-    print out "\n end;\n else begin\n"; (*false*)
+    print out "\n end\n else begin\n"; (*false*)
     let loc_false = (if is_none curloc  
       then (*Toplevel*) LIf(false, LDecl (-1)) (*-1 = représente un truc vide (informel)*)
       else (*Imbriqué*) loc_pushback (LIf(false, LDecl (-1)))  (Option.get curloc)
