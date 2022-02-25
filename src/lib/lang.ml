@@ -55,7 +55,7 @@ let rec loc_pushback loc (*toloc*) = function
 
 type vartype =
 | SetMetroComp of (float->float->bool) (* fonction de comparaison pour Métropolis *)
-| SetInferSamples of int
+| IntSetting of int (*ce type est redondant *)
 | OtherSetting of string 
 | Distribution (* Une distribution introduite par dist *)
 (* à étoffer pour vérifier plus de choses de notre côté *)
@@ -213,6 +213,8 @@ let wrap_args =
             ) ""
 ;;
 
+let get_infer_count env = match Hashtbl.find env "Infer"  with |  IntSetting(n) -> n | _ -> 1000;;
+
 (* Production d'un fichier OCaml à partir de notre langage *)
 let precompile (e:expr) out  = 
   let rec prodcode out env = function
@@ -221,6 +223,7 @@ let precompile (e:expr) out  =
   |Real(i) -> fprintf out "%f" i
   |Arr(id, e) -> fprintf out "%s.(" id; prodcode out env  e; print out ")"
   |Unit -> print out "()"
+  |Setting (s, i) -> Hashtbl.add env s (IntSetting(i));
   |Liste(l) -> print_list out env l
   |Paren e -> print out "("; prodcode out env  e; print out ")" 
   |App(a,b) -> prodcode out env  a; print out "  "; prodcode out env  b;print out "  ";
@@ -329,7 +332,7 @@ let precompile (e:expr) out  =
   and  gen_prob_cstr expr env p= 
     (match p with
     | Assume -> print out "assume " 
-    | Infer -> print out "infer 10000 " 
+    | Infer -> fprintf out "infer %d " @@ get_infer_count env
     | Factor -> print out "factor "
     | Sample -> print out "sample "; if not (is_dist env expr) then failwith "Sample utilisé avec un objet qui n'est pas une distribution" (*La suite immédiate doit être une distribution*)
     ); 
@@ -434,7 +437,7 @@ fprintf out "(*Portée en VA dans tout le if false : %s*)\n" (List.fold_left (fu
   let env = Hashtbl.create 10 in
   Hashtbl.add env "File" (OtherSetting "general2");
   Hashtbl.add env "Metro" (SetMetroComp((<=)));
-  Hashtbl.add env "Infer" (SetInferSamples(1000));
+  Hashtbl.add env "Infer" (IntSetting(1000));
   Hashtbl.add env "Method" (OtherSetting "undef");
   Hashtbl.add env "Scope" (Scope []);
   Hashtbl.add env "Loc" (Loc None);

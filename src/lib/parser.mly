@@ -60,7 +60,7 @@ open Ast
 %token PPL_FACTOR
 %token PPL_METHOD
 %token PRINT
- 
+%token SET_COUNT
 
 
 %token LEFTPAR 
@@ -97,7 +97,7 @@ open Ast
 
 %nonassoc UNIT
 %nonassoc Unit
-
+%nonassoc Count
 %%
 
 prog:
@@ -111,6 +111,8 @@ expr:
   | IF e = expr THEN EOL* ets = list(seq)  EOL* ELSE EOL* efs = list(seq)  EOL* ENDIF { If(e, ast_of_list ets, ast_of_list efs) }
   | FOR x=ID EQUALS vmin=expr TO vmax=expr DO EOL* xs =list(seq) EOL* DONE {For(x,vmin,vmax,ast_of_list xs)}
   | LEFTBR l = separated_list(SEMICOLON, listel) RIGHTBR { Liste(l) }
+  
+  | SET_COUNT x = INT %prec Count { Setting("Infer", x) }
   | e1 = expr op = binop e2 = expr %prec Binop { Binop(op, e1, e2) }
   | e = expr e2 = expr  %prec Application {App(e,e2)}
   | LEFTPAR e = expr RIGHTPAR { Paren e }

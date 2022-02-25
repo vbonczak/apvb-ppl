@@ -32,6 +32,7 @@ let print_ast out e =
     |Int(i) -> print out "Int : "; print_int out i
     |Real(i) -> fprintf  out "Réel : %f" i
     |Unit -> print out "((unit))"
+	|Setting (s, i) ->  fprintf out "Changement du param %s en %d" s i
     |Paren e -> print out "("; print_ast_indent out c e; print out ")\n" 
     |Assign(d, e) -> print_ast_indent out c d; print out " prend la valeur\n "; print_ast_indent out c e; print_ret out 
     |Arr(id, e) -> fprintf out "%s.(" id; print_ast_indent out c e; print out ")"

@@ -49,6 +49,7 @@ type expr =
   | Method of string
   | String of string
   | Print of printable * string (*Sortie de la distribution spécifiée par son nom, ou alors juste une chaîne*)
+    | Setting of string * int
   | Nop
  
 
