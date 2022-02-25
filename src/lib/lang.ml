@@ -22,25 +22,6 @@ let print out =
 
 let print_ret out =
   print out "\n";;
-(*
-let test_funny_bern_ast : expr = 
-  ast_of_list [
-    Method("Rejection");
-  (*avec des retours direct dans la chaîne pour l'instant*)
-    Let("funny_bernoulli", );
-    StdCaml("let a = "); 
-    Proba(Sample, StdCaml("(bernoulli 0.5) in"));
-    StdCaml("let b = "); Proba(Sample, StdCaml("(bernoulli 0.5) in"));
-    StdCaml("let c = "); Proba(Sample, StdCaml("(bernoulli 0.5) in"));
-  Proba(Assume, StdCaml("a = 1 || b = 1"));
-  StdCaml("a+b+c");
-  StdCaml("let _ =\nRandom.self_init();");
-  Print(Text, "@.-- Funny Bernoulli, Basic Rejection Sampling --@.");
-  Dist("d", Proba(Infer, StdCaml("funny_bernoulli")));
-  Print(Distrib, "d")
-  ]    ;;*)
-
-  let test_funny_bern_ast : expr = Nop;;
 
 let dependencies = [];;
 
@@ -52,9 +33,6 @@ let module_of_infer_method = function
 |s -> ignore (failwith ("valeur "^s^" invalide ici")); ""
 ;;
 
-
-
-
 let snippet_print_gen t s =
   match t with
   |Distrib -> sprintf "let { values; probs; _ } = Option.get %s.support in
@@ -63,14 +41,14 @@ Array.iteri (fun i x -> Format.printf \"%%d %%f@.\" x probs.(i)) values;" s
 ;;
 
 (*MetroSingle*)
-type location = LDecl  (* Which declaration in a sequence of instructions without for or if *)
+type location = LDecl of int(* Which declaration in a sequence of instructions without for or if *)
   | LIf of bool * location
   | LFor of int * location
   (* Describes where a variable is located in the code so as to distinguish different 
   instructions of the form "let x = sample ..." *)
 
 let rec loc_pushback loc (*toloc*) = function 
-| LDecl -> loc
+| LDecl _ -> loc
 | LIf(b, l) -> LIf(b, loc_pushback loc l)
 | LFor(n, l) -> LFor(n, loc_pushback loc l)
 ;;
@@ -93,7 +71,7 @@ let builtin_dists = ["bernoulli";"normal";"uniform";"binomial"];;
 let list_of_scope = function | Scope l -> l | _ -> [] ;;
 let locopt_of_loc = function | Loc l -> l | _ -> None ;;
 
-let vartype_VarInfo_loc = function | VarInfo(l,_)->l | _ ->ignore (failwith ("Mauvais type d'information dans l'environnement (VarInfo attendu).")); LDecl ;;
+let vartype_VarInfo_loc = function | VarInfo(l,_)->l | _ ->ignore (failwith ("Mauvais type d'information dans l'environnement (VarInfo attendu).")); LDecl (-1);;
 
 let vartype_VarInfo_deps = function | VarInfo(_,d)->d | _ ->
   ignore (failwith ("Mauvais type d'information dans l'environnement (VarInfo attendu).")); [] ;;
@@ -126,10 +104,56 @@ let rec find_vars = function
 ;;
 
 let rec print_loc = function
-| LDecl -> "LDecl"
-| LIf(b, l) ->sprintf "LIf(%b , %s)" b (print_loc l)
+| LDecl n -> sprintf "LDecl %d" n
+| LIf(b, l) -> sprintf "LIf(%b , %s)" b (print_loc l)
 | LFor(n, l) -> sprintf "LFor(%n , %s)" n (print_loc l)
 ;;
+
+(*Cette fonction retourne true si la location that est une sous-location de in_what (imbriquée dedans).
+Sert à enlever les variables dont la portée est terminée quand on traite un if ou un for.
+  Pas besoin d'identifier quel for ou if cela concerne, ni quelle branche car on les aura enlevé à la fin de leur traitement
+    (au else, et au endif pour if).*)
+let rec is_in_loc that in_what = 
+match that, in_what with
+|(LDecl _), (LDecl _) -> true
+|(LIf(_, sub_loc)), (LIf(_, in_sub_loc)) -> is_in_loc sub_loc in_sub_loc
+|(LFor(_, sub_loc)), (LFor(_, in_sub_loc)) ->  is_in_loc sub_loc in_sub_loc
+|_ -> false
+;;
+
+
+let filter_hashtable table loc_when_entering_scope =
+  let to_delete = ref [] in (*multiensemble de choses à enlever de la table
+   (on peut poper plusieurs "x" par exemple si les deux sont sous cette location)*)
+  Hashtbl.iter  (fun k v -> 
+    match v with
+    (* Loc, liste de deps *)
+    |VarInfo(loc, _) when is_in_loc loc loc_when_entering_scope -> to_delete := k::!to_delete
+    |_ -> ()
+  ) table;
+  (* Suppression effective de toutes ces variables *)
+  List.iter (fun k -> Hashtbl.remove table k) !to_delete
+;;
+
+
+let add_var_in_table table variable where =
+  let l = Hashtbl.find_all table variable in
+  (* l est la liste des variables de même nom *)
+  Hashtbl.add table variable (VarInfo(
+        (if is_none where  
+          then (*Toplevel*) LDecl (List.length l)
+          else (*Imbriqué*) loc_pushback (LDecl (List.length l)) (Option.get where)
+        )
+      , [])); (*Personne ne dépend de x pour l'instant*)
+        ;;
+  (*Cette valeur va masquer dans la table les autres déclarations précédemment traitées.*)
+
+ 
+
+  (*Recherche si la variable est une VA, retourne not found sinon*)
+let find_random_variable env var =  Hashtbl.find env var ;;
+
+let is_random_variable env var = Hashtbl.mem env var;;
 
 (* Production d'un fichier OCaml à partir de notre langage *)
 let precompile (e:expr) out  = 
@@ -146,60 +170,80 @@ let precompile (e:expr) out  =
   |Cond(c, e1, e2) -> manage_condition out env e1 e2 c
   (*Pour métropolis*)
   |Let(x,[], Proba(Sample, e)) when is_smetropolis env ->  
-    let infos = sprintf "let %s = sample \"%s\" " x x in 
+    fprintf out "let %s = sample \"%s\" " x x;
     let curloc = locopt_of_loc (Hashtbl.find env "Loc") in
-    Hashtbl.add env x (VarInfo(
-        (if is_none curloc  
-          then (*Toplevel*) LDecl 
-          else (*Imbriqué*) loc_pushback LDecl (Option.get curloc)
-        )
-      , [])); (*Personne ne dépend de x pour l'instant*)
+    add_var_in_table env x curloc; (*Ajout de x dans les variables aléatoires*)
     fprintf out "(* LOC(%s) = %s *)\n" x (print_loc (vartype_VarInfo_loc (Hashtbl.find env x)));
-    (*Par contre, x dépend des variables dans notre scope ? TODO rechercher auxquelles on fait référence*)
+    
+    (*Par contre, x dépend des variables dans notre scope ? *)
+    List.iter    
+        (*f*)    (fun var -> try 
+         let info = find_random_variable env var in
+    
+ 
+                              Hashtbl.replace env var (VarInfo(vartype_VarInfo_loc info , x::(vartype_VarInfo_deps info))) 
+                            with Not_found -> ()
+                              
+                              )
+                              (*On va naturellement remplacer la dernière arrivée*)
+        (*liste*)(find_vars e); (*ajout de x dans les variables dépendant de var, car var est dans les arguments du sample*)
 
-    List.iter   (*Hashtbl.find env "Scope"*)
-        (fun var -> let info =  Hashtbl.find env var in (*Plante si une variable n'est pas dans la portée! TODO gestion de l'erreur*)
-        Hashtbl.replace env var (VarInfo(vartype_VarInfo_loc info , x::(vartype_VarInfo_deps info))) )
-        (find_vars e); (*ajout de x dans les variables dépendant de var*)
-
-    let cur_scope = list_of_scope (Hashtbl.find env "Scope") in (*Liste du contexte*)
-    Hashtbl.replace env "Scope" (x::cur_scope); (*Ajout de x dans le contexte actuel*)
-    prodcode out env (e);
+    
+    prodcode out env e; (*let x = sample e*)
     (*Le let ne se "referme" jamais de son initiative (voir le cas du if à ce sujet)*)
 
     print out " in\n"
-
-  |If(Proba(Sample, e), vrai, faux) when is_smetropolis env -> 
+    
+    (* |If( *** Proba(Sample, e) *** , vrai, faux) when is_smetropolis env -> 
+      prodcode out env (Seq(Let("if__var",[], Proba(Sample, e)),
+        If(Var "if__var")) *)   (*TODO gestion du if avec un sample*)
+  |If(e, vrai, faux) when is_smetropolis env -> 
     print out "if "; 
     prodcode out env  e; 
+
+    (*Les variables aléatoires dont dépend l'expression cond*)
+    let vas = List.filter (fun v -> is_random_variable env v) (find_vars e) in 
     (*Sauvegarde de notre scope*)
-    let cur_scope = Hashtbl.find env  "Scope" in
-    (*Contexte location actuel*)
+    let cur_scope = list_of_scope (Hashtbl.find env  "Scope") in
+    Hashtbl.replace env "Scope" (Scope (vas@cur_scope)); (*Ajout des VA dans e dans le contexte de dépendance actuel*)
+    (*location actuel*)
     let curloc = locopt_of_loc (Hashtbl.find env "Loc") in
 
+    
+
     print out "then begin\n"; (*true*)
+    (*DEBUG*)
+    fprintf out "\n(*Portée en VA dans tout le if : %s*)\n" (List.fold_left (fun a b -> a^" "^b) "" (list_of_scope(Hashtbl.find env "Scope")));
     let loc_true = (if is_none curloc  
-      then (*Toplevel*) LIf(true, LDecl) 
-      else (*Imbriqué*) loc_pushback LIf(true, LDecl)  (Option.get curloc)
+      then (*Toplevel*) LIf(true, LDecl (-1)) (*-1 = représente un truc vide (informel)*)
+      else (*Imbriqué*) loc_pushback (LIf(true, LDecl (-1)))  (Option.get curloc)
     ) in
-    Hashtbl.replace env "Loc" loc_true; (*mise à jour de la loc actuelle*)
-    prodcode out env v;
+    Hashtbl.replace env "Loc" (Loc (Some loc_true)); (*mise à jour de la loc actuelle*)
+    prodcode out env vrai;     (* Traitement de la branche true *)
+
+    (*Nettoyage de la table*)
+    filter_hashtable env loc_true;
+    (*Rétablissement du scope avant le then*)
+    Hashtbl.replace env  "Scope" (Scope cur_scope);
 
     print out "\n end\n else begin\n"; (*false*)
     let loc_false = (if is_none curloc  
-      then (*Toplevel*) LIf(false, LDecl) 
-      else (*Imbriqué*) loc_pushback LIf(false, LDecl)  (Option.get curloc)
+      then (*Toplevel*) LIf(false, LDecl (-1)) (*-1 = représente un truc vide (informel)*)
+      else (*Imbriqué*) loc_pushback (LIf(false, LDecl (-1)))  (Option.get curloc)
     ) in
-    Hashtbl.replace env "Loc" loc_false; (*mise à jour de la loc actuelle, autre choix*)
-    prodcode out env  f; print out "\nend\n"
+    Hashtbl.replace env "Loc" (Loc (Some loc_false)); (*mise à jour de la loc actuelle, autre choix*)
+    prodcode out env faux; print out "\nend\n";
     
-    (*Rétablissement du scope avant le if*)
-    Hashtbl.replace env  "Scope" cur_scope;
+    (*Nettoyage de la table*)
+    filter_hashtable env loc_false; (*False ou true, pareil comme seul l'un des deux existe de tte façon*)
+
+    (*Rétablissement du scope avant le else*)
+    Hashtbl.replace env  "Scope" (Scope cur_scope);
     (*et de la loc*)
-    Hashtbl.replace env "Loc" cur_loc;
-  |For(x,vmin,vmax,body)  when is_smetropolis env -> fprintf out "for %s = " x; prodcode out env  vmin; print out " to "; prodcode out env  vmax; print out " do\n";
+    Hashtbl.replace env "Loc" (Loc (curloc));
+  (* |For(x,vmin,vmax,body)  when is_smetropolis env -> fprintf out "for %s = " x; prodcode out env  vmin; print out " to "; prodcode out env  vmax; print out " do\n";
     (*Corps de boucle TOTO single metro*) prodcode out env  body;
-                    print out "\ndone;\n";
+                    print out "\ndone;\n"; *)
 
   (*les autres*)
   |Let(x,l,e) -> fprintf out "let %s %s = " x (List.fold_left (
@@ -214,7 +258,7 @@ let precompile (e:expr) out  =
     |[] -> if x <> "_" then print out "in\n"
     |_ when is_smetropolis env (*Une fonction : on donne les variantes first_f et resample_f qui vont retourner 
     le tableau des variables associées à leur emplacement et les variables qui en dépendent*) ->
-      fprintf out "\nlet first_%s = " x; smetro_generate_first_variant out env e; print out ";;\n"
+      fprintf out "\nlet first_%s = " x; smetro_generate_first_variant out env e; print out ";;\n";
 
       fprintf out "\nlet resample_%s = " x; smetro_generate_resample_variant out env e; print out ";;\n"
     |_ -> print out "\n"; )
@@ -270,18 +314,20 @@ let precompile (e:expr) out  =
 
 
   and  gen_prob_cstr expr env p= 
-  (match p with
+    (match p with
     | Assume -> print out "assume " 
     | Infer -> print out "infer 10000 " 
     | Factor -> print out "factor "
     | Sample -> print out "sample "; if not (is_dist env expr) then failwith "Sample utilisé avec un objet qui n'est pas une distribution" (*La suite immédiate doit être une distribution*)
-    ); prodcode out env  expr;  print out ";"
+    ); 
+    prodcode out env  expr;  print out ";"
 
-
-
+(*Pour Metropolis, génération du CORPS des fonctions associées (le let first_ est déjà écrit, ainsi que le ;; à la fin)*)
+  and smetro_generate_first_variant out env e = 
+     
+    prodcode out env e (*todo ajouter pour le cas des let, un ajout dans la liste*)
+  and smetro_generate_resample_variant out env e = prodcode out env e
   in
-
-
 
   (* Tableau des variables -> type *)
   let ic = open_in "templates/general2.mlt" in
@@ -314,7 +360,7 @@ let compile path =
   close_out och;
   (*Compilation du fichier créé juste avant*)
   let exefile = base_name^".out" in
-  let cmd = sprintf  "ocamlfind ocamlc -o \"%s\" %s \"%s\"" exefile (match length deps with
+  let cmd = sprintf  "true ocamlfind ocamlc -o \"%s\" %s \"%s\"" exefile (match length deps with
                                                                     |0 -> ""
                                                                     |_ -> sprintf "-package %s -linkpkg" deps
                                                                     )                                         mlfile in

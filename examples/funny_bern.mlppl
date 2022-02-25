@@ -11,6 +11,6 @@ let funny_bernoulli () =
 let _ =
   Random.self_init()
   print "@.-- Funny Bernoulli, Basic Rejection Sampling --@."
-  dist d = infer funny_bernoulli
+  dist d = infer funny_bernoulli;
  print d
 ;

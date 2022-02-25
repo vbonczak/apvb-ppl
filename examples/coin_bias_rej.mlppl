@@ -7,7 +7,7 @@ let coin x () =
   
  let _ =
   Random.self_init()
-  dist d = infer (coin [1; 1; 0; 0; 0; 0; 0; 0; 0; 0])
+  dist d = infer (coin [1; 1; 0; 0; 0; 0; 0; 0; 0; 0]);
   let m = ref 0.  ;
 
   let s = Option.get (d.support)  ;

@@ -108,7 +108,7 @@ statement:
   | e = expr EOF { e }
 expr: 
   | LET x = ID l = list(arg) EQUALS  EOL* xs =list(seq) EOL* SEMICOLON  { Let (x,  l, ast_of_list xs) } 
-  | IF e = expr THEN et = expr ELSE ef = expr ENDIF { If(e, et, ef) }
+  | IF e = expr THEN EOL* et = expr  EOL* ELSE EOL* ef = expr  EOL* ENDIF { If(e, et, ef) }
   | FOR x=ID EQUALS vmin=expr TO vmax=expr DO EOL* xs =list(seq) EOL* DONE {For(x,vmin,vmax,ast_of_list xs)}
   | LEFTBR l = separated_list(SEMICOLON, listel) RIGHTBR { Liste(l) }
   | e1 = expr op = binop e2 = expr %prec Binop { Binop(op, e1, e2) }
@@ -117,7 +117,7 @@ expr:
   | d = destination ASSIGN e = expr { Assign(d,e) }
   | e = condition { e }
   | BEGIN xs = list(seq) END { ast_of_list xs }
-  | DIST x = ID EQUALS e1 = expr   { Dist (x, e1) } 
+  | DIST x = ID EQUALS e1 = expr SEMICOLON  { Dist (x, e1) } 
   | PPL_SAMPLE e = expr     { Proba (Sample, e) }
   | PPL_ASSUME e = expr     { Proba (Assume, e) }
   | PPL_INFER e = expr   { Proba (Infer, e) }
