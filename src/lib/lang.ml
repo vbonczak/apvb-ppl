@@ -66,7 +66,7 @@ type vartype =
 ;;
  
 
-let builtin_dists = ["bernoulli";"normal";"uniform";"binomial";"bernoulli_f"; "uniform_int"; "binomial_f"];;
+let builtin_dists = ["bernoulli";"normal";"uniform";"binomial";"bernoulli_f"; "uniform_int"];;
 
 let list_of_scope = function | Scope l -> l | _ -> [] ;;
 let locopt_of_loc = function | Loc l -> l | _ -> None ;;
