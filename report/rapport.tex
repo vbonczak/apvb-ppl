@@ -8,9 +8,11 @@
 \usepackage{vincent} 
 \usepackage{listings}
 
+\usepackage{lmodern}
+
 \lstset{
 basicstyle=\ttfamily,
-keywords = [1]{method},
+keywords = [1]{method, count},
 keywords=[2]{let,dist, if, then, else, endif,for,to,do,done},
 keywords=[3]{sample, infer,observe, print, factor},
 otherkeywords={% Operators
@@ -40,6 +42,13 @@ breaklines=true
 
 \maketitle
 
+\begin{abstract}
+Ce document est le rapport sur le projet du cours de \emph{Langages de Programmation Probabilistes} (cours 2.40 du MPRI). 
+Le projet permet d'appliquer les algorithmes d'inférence et les méthodes d'analyse des langages probabilistes rencontrés durant le cours. 
+Notre développement s'est concentré sur l'implémentation d'un petit langage inspiré de Caml pour écrire des programmes, compilés ensuite vers
+l'OCaml, disposant d'un environnement  d'exécution comportant plusieurs méthodes d'inférence.
+\end{abstract}
+
 \section{Travail réalisé}
 
 Nous avons implémenté le projet sous la forme d'un compilateur d'un langage simple vers l'OCaml, compilé avec une bibliothèque de fonctions d'inférence.
@@ -62,9 +71,10 @@ print d
 ;
 \end{lstlisting}
 
-\bigskip
-
+ 
 Plusieurs constructions probabilistes comme \verb|assume| ou \verb|infer| sont supportées, ainsi qu'une fonction d'affichage rapide de résultats \verb|print|.
+On peut modifier le nombre d'échantillons dans plusieurs méthodes d'inférence à l'aide de la commande \lstinline|count << <n>|.
+On change la méthode avec \lstinline{method <nom>}, parmi 
 
 Nous avons opté pour un langage à parser pour pouvoir faire du typage et de l'analyse statique (cependant par manque de temps nous n'avons implémenté que le typage simple, l'analyse statique s'étant révélée chronophage à développer).
 Le typage vérifie que l'on échantillonne bien une distribution par exemple (soit une des valeurs existantes dans le langage comme \verb|bernoulli| ou une distribution issue d'une inférence, introduite par le mot-clé \lstinline{dist}).
