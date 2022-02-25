@@ -11,7 +11,7 @@
 \lstset{
 basicstyle=\ttfamily,
 keywords = [1]{method},
-keywords=[2]{let,dist, if, then, else},
+keywords=[2]{let,dist, if, then, else, endif,for,to,do,done},
 keywords=[3]{sample, infer,observe, print, factor},
 otherkeywords={% Operators
     |, ->, !,^
@@ -48,16 +48,19 @@ Ce langage s'inspire de Caml pour les appels et les instructions de contrôle, e
 method Rejection
 
 let funny_bernoulli  () =  
- let a = sample (bernoulli 0.5)  
- let b = sample (bernoulli 0.5)  
- let c = sample (bernoulli 0.5) 
+ let a = sample (bernoulli 0.5);
+ let b = sample (bernoulli 0.5);  
+ let c = sample (bernoulli 0.5); 
 assume (a=1||b=1)
 a+b+c
+;
 
 let _ = 
 print ".-- Funny Bernoulli, Basic Rejection Sampling --."
 dist d = infer funny_bernoulli  
 print d
+;
+
 \end{lstlisting}
 
 \bigskip
@@ -66,10 +69,15 @@ Plusieurs constructions probabilistes comme \verb|assume| ou \verb|infer| sont s
 
 Nous avons opté pour un langage à parser pour pouvoir faire du typage et de l'analyse statique (par manque de temps nous n'avons implémenté que le typage simple,
 l'analyse statique s'étant révélée chronophage à développer).
+Le typage vérifie que l'on échantillonne bien une distribution (soit une des valeurs existantes dans le langage comme \verb|bernoulli| ou une distribution issue d'une inférence, introduite par le mot-clé \lstinline{dist}).
 
 \section{Métropolis}
 
 Afin de gérer les dépendances, les appels à sample seront accompagnés du nom de la variable 
+
+Pendant le parcours de l'AST, analyse statique des dépendances et des loc
+Ces infos seront données à la fonction sample à chaque appel
+ainsi sample peut choisir de rééchantilloner les vars de son choix, selon si c'est first ou resample
 
 \section{La simulation}
 

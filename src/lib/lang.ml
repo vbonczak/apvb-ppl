@@ -113,6 +113,8 @@ let rec find_vars = function
 |Binop(_, e1, e2)->(find_vars e1) ++ (find_vars e2)
 |Cond (_ , e1, e2)->(find_vars e1) ++ (find_vars e2)
 |Proba(_,e)-> find_vars e
+|Assign(c, e)->(find_vars c)++(find_vars e)
+|Arr(_,e)->find_vars e
 |_ -> []
 ;;
 
@@ -204,6 +206,15 @@ let populate_liste_retour out env expr =
     )
     (get_random_variables_in  env expr)
 
+let wrap_args = 
+  List.fold_left (
+    fun a b -> a^" "^(match b with 
+                |Var(x)-> x
+                |Unit->" () "
+                |_-> failwith "Erreur dans un let, l'objet n'est ni un identificateur ni ()."
+              ) 
+            ) ""
+;;
 
 (* Production d'un fichier OCaml à partir de notre langage *)
 let precompile (e:expr) out  = 
@@ -253,13 +264,8 @@ let precompile (e:expr) out  =
 
 
   and manage_let out env x l e = 
-    fprintf out "let %s%s %s = " (if is_smetropolis env && List.length l > 0 then "first_" else "") x (List.fold_left (
-    fun a b -> a^" "^(match b with 
-                |Var(x)-> x
-                |Unit->" () "
-                |_-> failwith "Erreur dans un let, l'objet n'est ni un identificateur ni ()."
-              ) 
-            ) "" l) ;
+   
+    fprintf out "let %s%s %s = " (if is_smetropolis env && List.length l > 0 then "let sample__" else "") x (wrap_args l) ;
     
     (*si MetroSingle, y a t-il des VA dans l'expression?*)
     if (is_smetropolis env) then begin
@@ -281,12 +287,12 @@ let precompile (e:expr) out  =
     match l with
     |[] -> if x <> "_" then print out " in\n"
     |_ when is_smetropolis env -> populate_liste_retour out env e;
-      print out "\n, liste_retour\n";(*Une fonction : on donne les variantes first_f et resample_f qui vont retourner 
+      fprintf out "in\n(resultat__%s, liste_retour)\n;;\n" x;(*Une fonction : on donne les variantes first_f et resample_f qui vont retourner 
     le tableau des variables associées à leur emplacement et les variables qui en dépendent*) 
      (* fprintf out "\nlet first_%s = " x; smetro_generate_first_variant out env e; print out ";;\n";
 
       fprintf out "\nlet resample_%s = " x; smetro_generate_resample_variant out env e; print out ";;\n"*)
-    |_ -> print out "\n"
+    |_ -> print out ";;\n"
 
   and manage_condition out env e1 e2 c =   prodcode out env  e1; (match c with
     | LT  -> print out " < " 
@@ -315,7 +321,7 @@ let precompile (e:expr) out  =
     |Var x -> fprintf out "%s := " x
     |_ -> failwith "Assignement invalide."
     );
-    prodcode out env  e
+    prodcode out env  e; print out ";\n"
     (*Génération de la ligne de code pour la construction probabiliste*)
 
 
@@ -345,9 +351,9 @@ let precompile (e:expr) out  =
     let curloc = locopt_of_loc (Hashtbl.find env "Loc") in
 
     print out " then begin\n"; (*true*)
-    (*DEBUG*)
+    (*DEBUG
     fprintf out "(*Portée en VA dans tout le if : %s*)\n" (List.fold_left (fun a b -> a^" "^b) "" (list_of_scope(Hashtbl.find env "Scope")));
-     
+     *)
       let cur_scope_avant_then = list_of_scope (Hashtbl.find env  "Scope") in
 
     let loc_true = if is_none curloc  
@@ -357,9 +363,9 @@ let precompile (e:expr) out  =
     Hashtbl.replace env "Loc" (Loc (Some loc_true)); (*mise à jour de la loc actuelle*)
     prodcode out env vrai;     (* Traitement de la branche true *)
 
-(*DEBUG*)
+(*DEBUG
 fprintf out "(*Portée en VA dans tout le if true : %s*)\n" (List.fold_left (fun a b -> a^" "^b) "" (list_of_scope(Hashtbl.find env "Scope")));
-     
+     *)
 
     (*Ajout dans le retour de tout ce qui est traité dans cette branche*)
     populate_liste_retour out env vrai;
@@ -375,14 +381,16 @@ fprintf out "(*Portée en VA dans tout le if true : %s*)\n" (List.fold_left (fun
       else (*Imbriqué*) loc_pushback (LIf(false, LDecl (-1)))  (Option.get curloc)
     ) in
     Hashtbl.replace env "Loc" (Loc (Some loc_false)); (*mise à jour de la loc actuelle, autre choix*)
-    prodcode out env faux; print out "\nend\n";
+    prodcode out env faux; 
     
-    (*DEBUG*)
+    (*DEBUG
 fprintf out "(*Portée en VA dans tout le if false : %s*)\n" (List.fold_left (fun a b -> a^" "^b) "" (list_of_scope(Hashtbl.find env "Scope")));
-     
+     *)
 
     (*Ajout dans le retour de tout ce qui est traité dans cette branche*)
     populate_liste_retour out env faux;
+
+    print out "\nend\n";
 
     (*Nettoyage de la table*)
     filter_hashtable env loc_false; (*False ou true, pareil comme seul l'un des deux existe de tte façon*)
@@ -394,23 +402,21 @@ fprintf out "(*Portée en VA dans tout le if false : %s*)\n" (List.fold_left (fu
   
   and manage_metro_let out env x e =
     if not (is_dist env e) then failwith "Sample utilisé avec un objet qui n'est pas une distribution"; (*La suite immédiate doit être une distribution*)
-    fprintf out "let %s = sample \"%s\" " x x;
-    let curloc = locopt_of_loc (Hashtbl.find env "Loc") in
+      let curloc = locopt_of_loc (Hashtbl.find env "Loc") in
     let xloc = add_var_in_table env x curloc in (*Ajout de x dans les variables aléatoires*)
-    fprintf out "(* LOC(%s) = %s *)" x (print_loc (vartype_VarInfo_loc (Hashtbl.find env x)));
+    fprintf out "let %s = sample \"%s\" (%s) " x x  (print_loc xloc);
     
-      
     prodcode out env e;
-    print out " in\n";
     let v = find_random_variable env x in 
     fprintf out " in\n let deps__%s = ref [] in 
     let membre_retour_sans_deps__%s = ((\"%s\", %s), %s) in\n" x x x (print_loc (vartype_VarInfo_loc v)) x;(*deps se remplit à l'exécution*)
  
     (*Par contre, x dépend des variables dans notre scope ? *)
     add_to_deps env out x xloc  (find_vars e); (*ajout de x dans les variables dépendant de var, car var est dans les arguments du sample*)
-    (*Et les variables du scope*)
     
-    add_to_deps env out x xloc ( list_of_scope (Hashtbl.find env  "Scope") );
+    (*Et les variables du scope*)
+    (*Update : finalement non*)
+    (* add_to_deps env out x xloc ( list_of_scope (Hashtbl.find env  "Scope") ); *)
      
     (*Le let ne se "referme" jamais de son initiative (voir le cas du if à ce sujet)*)
 
