@@ -48,7 +48,7 @@ type location = LDecl of int(* Which declaration in a sequence of instructions w
   instructions of the form "let x = sample ..." *)
 
 type vartype =
-| SetMetroComp of (float->float->bool) (* fonction de comparaison pour Métropolis *)
+(*| SetMetroComp of (float->float->bool) (* fonction de comparaison pour Métropolis*), future use *)
 | IntSetting of int (*ce type est redondant *)
 | OtherSetting of string 
 | Distribution of string (* Une distribution introduite par dist, "float" ou "int" *)
@@ -479,7 +479,6 @@ fprintf out "(*Portée en VA dans tout le if false : %s*)\n" (List.fold_left (fu
   fprintf out "%s\n(*Fin de la partie d'entête*)\n" s;
   let env = Hashtbl.create 10 in
   Hashtbl.add env "File" (OtherSetting "general2");
-  Hashtbl.add env "Metro" (SetMetroComp((<=)));
   Hashtbl.add env "Infer" (IntSetting(1000));
   Hashtbl.add env "Method" (OtherSetting "undef");
   Hashtbl.add env "Scope" (Scope []);
