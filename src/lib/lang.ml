@@ -502,7 +502,7 @@ let compile path =
   close_out och;
   (*Compilation du fichier créé juste avant*)
   let exefile = base_name^".out" in
-  let cmd = sprintf  "true ocamlfind ocamlc -o \"%s\" %s \"%s\"" exefile (match length deps with
+  let cmd = sprintf  "ocamlfind ocamlc -o \"%s\" %s \"%s\"" exefile (match length deps with
                                                                     |0 -> ""
                                                                     |_ -> sprintf "-package %s -linkpkg" deps
                                                                     )                                         mlfile in

@@ -71,6 +71,7 @@ print d
 ;
 \end{lstlisting}
 
+\subsection{Vue d'ensemble du langage}
  
 Plusieurs constructions probabilistes comme \verb|assume| ou \verb|infer| sont supportées, ainsi qu'une fonction d'affichage rapide de résultats \verb|print|.
 On peut modifier le nombre d'échantillons dans plusieurs méthodes d'inférence à l'aide de la commande \lstinline|count << <n>|.
@@ -87,7 +88,9 @@ Pour les autres structures de contrôle, nous avons mimé Caml (nous proposons p
 
 Pour finir, l'assignement se fait de la même manière pour les tableaux et pour les variables référence : via l'opérateur \verb|:=|, et le signe négatif (\verb|-| unaire) est le même pour les flottants et pour les entiers.
 
+\subsection{Utilisation}
 
+Tout d'abord, à partir du dossier du projet, exécuter la commande \verb|make|. Il suffit ensuite d'invoquer l'exécutable ainsi créé avec \verb|dune exec test/mlcc <fichier>|. On peut aussi visualiser l'arbre de syntaxe avec \verb|dune exec test/parse <fichier>|.
 
 \section{Distributions}
 
