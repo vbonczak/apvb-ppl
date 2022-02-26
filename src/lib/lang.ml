@@ -507,8 +507,8 @@ let compile path =
                                                                     |0 -> ""
                                                                     |_ -> sprintf "-package %s -linkpkg" deps
                                                                     )                                         mlfile in
-  printf "$ > %s" cmd;
+  printf "\n$ > %s\n" cmd;
   match Sys.command cmd with
-  |0 -> printf "Sortie : %s (dépendant de %s)\n" exefile deps
+  |0 -> printf "Sortie : %s (dépendances : [%s])\n" exefile deps
   |n -> printf "Erreur %d\n" n;
 ;;

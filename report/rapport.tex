@@ -90,7 +90,7 @@ Pour finir, l'assignement se fait de la même manière pour les tableaux et pour
 
 \subsection{Utilisation}
 
-Tout d'abord, à partir du dossier du projet, exécuter la commande \verb|make|. Il suffit ensuite d'invoquer l'exécutable ainsi créé avec \verb|dune exec test/mlcc <fichier>|. On peut aussi visualiser l'arbre de syntaxe avec \verb|dune exec test/parse <fichier>|.
+Tout d'abord, à partir du dossier du projet, exécuter la commande \verb|make|. Il suffit ensuite d'invoquer l'exécutable ainsi créé avec \verb|dune exec test/mlcc.exe <fichier>|, ce qui va créer un fichier avec l'extension \verb|.out| (ainsi que le fichier Caml précompilé). On peut aussi visualiser l'arbre de syntaxe avec \verb|dune exec test/parse.exe <fichier>|.
 
 \section{Distributions}
 
@@ -123,11 +123,10 @@ Néanmoins, lors de l'inférence, à chaque exécution nous pouvons utiliser la 
 
 Nous proposons plusieurs exemples de code dans le dossier \verb|./examples/| qui permettent d'utiliser les différentes méthodes d'inférence proposées.
 
-\verb|funny_bern.mlppl| contient le code de la finction \verb|funny_bernoulli|, et permet de déterminer le résultat avec la méthode par rejet. \verb|coin_bias_rej.mlppl| et \verb|coin_bias_imp.mlppl| permettent de tester les méthodes par rejet et par importance pour déterminer le meilleur biais à donner à une pièce pour obtenir une suite de lancers fixée. Enfin, le fichier \verb|bouncing_ball.mlppl| contient le code de l'exemple proposé dans le sujet, c'est-à-dire le problème de la balle rebondissante. Une balle part est lachée d'une position fixée (0,1) sans vitesse initiale et rebondit sur deux plateformes dont la position et l'angle sont choisis aléatoirement, ou sur le sol qui est situé à l'axe $y=0$. Le but est de se rapprocher le plus possible de la position (1,0) après 10 secondes, en utilisant la méthode Metropolis-Hastings multi-sites ou single-sites (on peut changer \verb|method MetroSingle| en \verb|method MetroMulti| dans le code). On obtient en résultat la probabilité d'être à une certaine distance de l'objectif.
+\verb|funny_bern.mlppl| contient le code de la fonction \verb|funny_bernoulli|, et permet de déterminer le résultat avec la méthode par rejet. \verb|coin_bias_rej.mlppl| et \verb|coin_bias_imp.mlppl| permettent de tester les méthodes par rejet et par importance pour déterminer le meilleur biais à donner à une pièce pour obtenir une suite de lancers fixée. Enfin, le fichier \verb|bouncing_ball.mlppl| contient le code de l'exemple proposé dans le sujet, c'est-à-dire le problème de la balle rebondissante. Une balle est lachée d'une position fixée $(0,1)$ sans vitesse initiale et rebondit sur deux plateformes dont la position et l'angle sont choisis aléatoirement, ou sur le sol qui est situé à l'axe $y=0$. Le but est de se rapprocher le plus possible de la position $(1,0)$ après $10$ secondes, en utilisant la méthode \emph{Metropolis-Hastings multi-sites} ou \emph{single-sites} (on peut changer \lstinline{method MetroSingle} en \lstinline{method MetroMulti} dans le code). On obtient en résultat la probabilité d'être à une certaine distance de l'objectif.
 
 \section{Conclusion}
  
-
 Nous avons tenu à faire un langage différent de Caml (et plus simple, à l'image de WebPPL) mais cela nous a pris plus de temps que prévu. En effet, pour avoir une analyse lexico-syntaxique satisfaisante vis-à-vis de nos contraintes sur le langage, nous avons dû nous replonger dans ce domaine, et adapter quelque peu nos connaissances sur  \verb|(ocaml)yacc| pour créer quelque chose d'optimal avec \verb|menhir|.
 
 L'aspect probabiliste a permis de revoir le cours et de repréciser certaines notions, comme l'inférence \emph{SingleSite} de Metropolis-Hastings -- nous avions compris le principe, mais le fait de l'implémenter a fixé les esprits.
