@@ -134,6 +134,7 @@ let uniform_int n = (* Random integer between 0 and n-1 *)
           } in
   d
 ;;
+
 let rec remove x q = match q with (* This function returns q with occurences of x removed and the number of such values removed. *)
   |[] -> [], 0.
   |y::q when y=x -> let l, occs = remove x q in l, occs +. 1.
@@ -291,20 +292,64 @@ end
 
 module MH_Multi = struct
 
+  exception ZeroScore
+  
   let sample d = d.sample();;
   
   let infer n f score = (* score takes a sample as input, and returns a float as score *)
     let x = f() (* First sample *) in
     let w0 = score x in
     let rec aux n x w = match n with
-      |0 -> x
+      |0 -> [x], [w]
       |n -> begin
           let y = f() in
           let wi = score y in
-          let p = (uniform 0. 1.).sample()in 
-          if p *. w <= wi then aux (n-1) y wi else aux (n-1) x w;
+          let p = (uniform 0. 1.).sample() in 
+          if p *. w <= wi
+          then
+            let l1, l2 = aux (n-1) y wi in
+            y::l1, wi::l2
+          else
+            let l1, l2 = aux (n-1) x w in
+            x::l1, w::l2
         end
-    in aux (n-1) x w0
+    in
+    let vals, scores = regroup_with_score (aux (n-1) x w0) in
+    let rec sum_scores scores = match scores with
+      |[] -> 0.
+      |x::q -> x +. (sum_scores q)
+    in
+    let total_score = sum_scores scores in
+    if total_score = 0. then raise ZeroScore;
+    let values = Array.of_list vals in
+    let probs = Array.of_list (List.map (fun x -> x /. total_score) scores) in
+    let support = {values = values;
+                   logits = Array.map log probs;
+                   probs = probs}
+    in
+  
+    let sample () =
+      let p = (uniform 0. 1.).sample() in (* Assume we split the interval [0,1] into length(prob) intervals, with interval i having length prob.(i). We then generate a random float between 0 and 1 and see which interval it falls in to generate a random value according to prob. *)
+      let i = ref 0 in
+      let x = ref 0. in
+      while p > !x +. support.probs.(!i) do x := !x +. support.probs.(!i); incr i; done;
+      support.values.(!i)
+    in
+    let logpdf x =
+      let index, bool = Array.fold_left
+                          (fun (i,b) y -> if b || y = x then (i,true) else (i+1,b))
+                          (0,false)
+                          values
+      in
+      assert(bool);
+      support.logits.(index) in
+    let d = {support = Some support;
+             sample = sample;
+             logpdf = logpdf;
+             exp = None;
+             var = None;
+            } in
+    d
   ;;
 
 end
@@ -318,6 +363,8 @@ type variable = string * location (* name and location *)
                 
 module MH_Single = struct (* Assume all samples return type float. *)
 
+  exception ZeroScore
+  
   let sampled_variables = ref [];;
 
   let sample v d = (* v is a variable, d is a distribution *)
@@ -350,15 +397,58 @@ module MH_Single = struct (* Assume all samples return type float. *)
     let x, variables_and_samples = f() in (* f() returns the expected result of f, but also a list containing, for each distinct variable x (may be the same name at a different location) encountered, the triple (x, variables that depend on x, value of x) *)
     let w0 = score x in
     let rec aux n x w var_and_samps = match n with
-      |0 -> x
+      |0 -> [x], [w]
       |n -> begin
           sampled_variables := remove_random_var var_and_samps;
           let y, var_and_samps2 = f() in
           let wi = score y in
           let p = (uniform 0. 1.).sample() in
-          if p *. w <= wi then aux (n-1) y wi var_and_samps2 else aux (n-1) x w var_and_samps;
+          if p *. w <= wi
+          then
+            let l1, l2 = aux (n-1) y wi var_and_samps2 in
+            y::l1, wi::l2
+          else
+            let l1, l2 = aux (n-1) x w var_and_samps in
+            x::l1, w::l2
         end
-    in aux (n-1) x w0 variables_and_samples
+    in
+    let vals, scores = regroup_with_score (aux (n-1) x w0 variables_and_samples)
+    in
+    let rec sum_scores scores = match scores with
+      |[] -> 0.
+      |x::q -> x +. (sum_scores q)
+    in
+    let total_score = sum_scores scores in
+    if total_score = 0. then raise ZeroScore;
+    let values = Array.of_list vals in
+    let probs = Array.of_list (List.map (fun x -> x /. total_score) scores) in
+    let support = {values = values;
+                   logits = Array.map log probs;
+                   probs = probs}
+    in
+  
+    let sample () =
+      let p = (uniform 0. 1.).sample() in (* Assume we split the interval [0,1] into length(prob) intervals, with interval i having length prob.(i). We then generate a random float between 0 and 1 and see which interval it falls in to generate a random value according to prob. *)
+      let i = ref 0 in
+      let x = ref 0. in
+      while p > !x +. support.probs.(!i) do x := !x +. support.probs.(!i); incr i; done;
+      support.values.(!i)
+    in
+    let logpdf x =
+      let index, bool = Array.fold_left
+                          (fun (i,b) y -> if b || y = x then (i,true) else (i+1,b))
+                          (0,false)
+                          values
+      in
+      assert(bool);
+      support.logits.(index) in
+    let d = {support = Some support;
+             sample = sample;
+             logpdf = logpdf;
+             exp = None;
+             var = None;
+            } in
+    d
   ;;
 
 end

@@ -36,7 +36,7 @@ let module_of_infer_method = function
 let snippet_print_gen t s =
   match t with
   |Distrib -> sprintf "let { values; probs; _ } = Option.get %s.support in
-Array.iteri (fun i x -> Format.printf \"%%d %%f@.\" x probs.(i)) values;" s
+Array.iteri (fun i x -> Format.printf \"%%s %%f@.\" (to_string x) probs.(i)) values;" s
   |Text -> sprintf "Format.printf \"%s\"" s
 ;;
 
