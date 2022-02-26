@@ -11,3 +11,4 @@ tests/*
 *.out
 *.pdf
 *.conflicts
+examples/*.ml
