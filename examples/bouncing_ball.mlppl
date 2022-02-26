@@ -1,0 +1,52 @@
+method MetroSingle
+
+let platforms_f () =
+  let x1 = sample(uniform 0. 1.) ;
+  let x2 = sample(uniform 0. 1.) ;
+  let y1 = sample(uniform 0. 1.) ;
+  let y2 = sample(uniform 0. 1.) ;
+  let ang1 = sample(uniform 0. 180.) ;
+  let ang2 = sample(uniform 0. 180.) ;
+  let l = 0.2 ;
+  let dt = 0.05 ;
+  let g = -9.81 ;
+  let bx = ref 0. ;
+  let by = ref 1. ;
+  let vx = ref 0. ;
+  let vy = ref 0. ;
+  let r = 0.05 ;
+  for i = 0 to 200 do
+    vy := !vy +. dt *. g
+    bx := !bx +. dt *. !vx
+    by := !by +. dt *. !vy
+    let d1 = (!bx -. x1) *. sin ang1 +. (!by -. y1) *. cos ang1 ;
+    if d1 < r && x1 -. sin ang1 *. (l /. 2.) < !bx && !bx < x1 +. sin ang1 *. (l /. 2.) then
+      let a = !vx *. sin ang1 +. !vy *. cos ang1 ;           
+      vx := !vx -. 2. *. a *. sin ang1
+      vy := !vy -. 2. *. a *. cos ang1
+    else ()
+    endif
+    let d2 = (!bx -. x2) *. sin ang2 +. (!by -. y2) *. cos ang2 ;
+    if d2 < r && x2 -. sin ang2 *. (l /. 2.) < !bx && !bx < x2 +. sin ang2 *. (l /. 2.) then
+      let a = !vx *. sin ang2 +. !vy *. cos ang2 ;
+      vx := !vx -. 2. *. a *. sin ang2
+      vy := !vy -. 2. *. a *. cos ang2
+    else   ()
+    endif
+    if !by < 0. then
+      by := 0.
+      vy := -0.99 *. !vy
+      vx := 0.99 *. !vx
+    else ()
+    endif
+  done
+  (!bx -. 1.) *. (!bx -. 1.) +. !by *. !by
+;
+
+let score x =
+  x;
+
+let _ =
+  dist x = infer platforms_f score;
+  print x
+;
