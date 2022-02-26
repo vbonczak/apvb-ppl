@@ -119,9 +119,11 @@ Pour ce faire, si l'utilisateur veut utiliser la méthode \emph{Metropolis-Hasti
 Néanmoins, lors de l'inférence, à chaque exécution nous pouvons utiliser la liste de sortie pour choisir un des échantillonnages aléatoirement pour pouvoir le rééchantillonner, ainsi que ses dépendances, lors de la prochaine exécution. Nous gardons la liste des variables connues en variable globale, et après avoir choisi la variable \verb|x| à rééchantillonner, nous enlevons \verb|x| et les échantillonnages dépendant de x de cette liste. Ainsi, la fonction \verb|sample| est modifiée pour d'abord regarder si la variable en question est présente dans la liste, et si elle l'est, elle utilise la valeur indiquée dans la liste, sinon elle échantillonne avec la fonction \verb|sample| associée à la distribution donnée. Cette liste est donc vide initialement, pour que toutes les variables soient échantillonnées lors de la première exécution.
   
 
-%\section{La simulation}
+\section{Examples}
 
- 
+Nous proposons plusieurs exemples de code dans le dossier \verb|./examples/| qui permettent d'utiliser les différentes méthodes d'inférence proposées.
+
+\verb|funny_bern.mlppl| contient le code de la finction \verb|funny_bernoulli|, et permet de déterminer le résultat avec la méthode par rejet. \verb|coin_bias_rej.mlppl| et \verb|coin_bias_imp.mlppl| permettent de tester les méthodes par rejet et par importance pour déterminer le meilleur biais à donner à une pièce pour obtenir une suite de lancers fixée. Enfin, le fichier \verb|bouncing_ball.mlppl| contient le code de l'exemple proposé dans le sujet, c'est-à-dire le problème de la balle rebondissante. Une balle part est lachée d'une position fixée (0,1) sans vitesse initiale et rebondit sur deux plateformes dont la position et l'angle sont choisis aléatoirement, ou sur le sol qui est situé à l'axe $y=0$. Le but est de se rapprocher le plus possible de la position (1,0) après 10 secondes, en utilisant la méthode Metropolis-Hastings multi-sites ou single-sites (on peut changer \verb|method MetroSingle| en \verb|method MetroMulti| dans le code). On obtient en résultat la probabilité d'être à une certaine distance de l'objectif.
 
 \section{Conclusion}
  
