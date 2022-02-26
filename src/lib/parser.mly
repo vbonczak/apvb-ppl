@@ -102,7 +102,7 @@ open Ast
 %%
 
 prog:
-  | xs =  list(statement) EOF { ast_of_list xs }
+  | EOL * xs =  list(statement) EOF { ast_of_list xs }
   ;
 statement:
   | e = expr EOL+ { e } 

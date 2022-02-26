@@ -13,7 +13,7 @@
 \lstset{
 basicstyle=\ttfamily,
 keywords = [1]{method, count},
-keywords=[2]{let,dist, if, then, else, endif,for,to,do,done},
+keywords=[2]{let,dist, if, then, else, endif,for,to,do,done,begin,end},
 keywords=[3]{sample, infer,observe, print, factor},
 otherkeywords={% Operators
     |, ->, !,^
@@ -79,7 +79,9 @@ On change la méthode avec \lstinline{method <nom>}, parmi
 Nous avons opté pour un langage à parser pour pouvoir faire du typage et de l'analyse statique (cependant par manque de temps nous n'avons implémenté que le typage simple, l'analyse statique s'étant révélée chronophage à développer).
 Le typage vérifie que l'on échantillonne bien une distribution par exemple (soit une des valeurs existantes dans le langage comme \verb|bernoulli| ou une distribution issue d'une inférence, introduite par le mot-clé \lstinline{dist}).
 
+La construction \lstinline{dist} est analogue au \lstinline{let}, et se termine par un point-virgule. En général et à part ces deux constructions, les instructions sont des lignes (à la différence du Caml qui peut avoir une application sur plusieurs lignes par exemple). 
 
+La conditionnelle \lstinline{if then else endif} s'assortit de la limite de fin, ce qui permet de spécifier une structure avec une séquence d'instructions dans chaque cas, sans forcément passer par \lstinline{begin...end}
 
 \section{Metropolis-Hastings}
 
@@ -102,6 +104,12 @@ ainsi sample peut choisir de rééchantilloner les vars de son choix, selon si c
 \section{Conclusion}
  
 
-Nous avons tenu à faire un langage différent de Caml (et plus simple, à l'image de WebPPL) mais cela nous a pris plus de temps que prévu.
+Nous avons tenu à faire un langage différent de Caml (et plus simple, à l'image de WebPPL) mais cela nous a pris plus de temps que prévu. En effet, pour avoir une analyse lexico-syntaxique satisfaisante vis-à-vis de nos contraintes sur le langage, nous avons dû nous replonger dans ce domaine, et adapter quelque peu nos connaissances sur  \verb|(ocaml)yacc| pour créer quelque chose d'optimal avec \verb|menhir|.
+
+L'aspect probabiliste a permis de revoir le cours et de repréciser certaines notions, comme l'inférence \emph{SingleSite} de Metropolis-Hastings -- nous avions compris le principe, mais le fait de l'implémenter a fixé la méthode.
+
+Une des choses intéressantes serait de réaliser un analyseur statique sur un code MLPPL donné, pour vérifier quelle plage de valeurs prennent les variables, et définir ainsi le bon fonctionnement du programme obtenu.
+
+Sur un aspect plus pratique, le code prend en charge l'ajout de dépendances (des bibliothèques externes) à la compilation, mais pas le langage pour l'instant. Pour ajouter de la flexibilité on peut imaginer introduire une instruction dans l'esprit du "Open" de caml ou du "From Import" de python, en ajoutant chaque dépendance demandée lors de la compilation.
 
 \end{document}
