@@ -33,10 +33,11 @@ let module_of_infer_method = function
 |s -> ignore (failwith ("valeur "^s^" invalide ici")); ""
 ;;
 
+let ends_with suffix s = if String.length suffix > String.length s then false else String.sub s (String.length s - (String.length suffix)) (String.length suffix) = suffix;;
 
 (*Si on ne connaît pas la dist, son suffixe va nous informer*)
 let dist_type d = 
-if ends_with ~suffix:"_f" d then  "float" else "int";;
+if ends_with "_f" d then  "float" else "int";;
 
 
 (*MetroSingle*)

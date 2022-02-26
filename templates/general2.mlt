@@ -18,7 +18,7 @@ let print_f d = (* A function that prints float dists *)
   Array.iteri (fun i x -> Format.printf "%f %f@." x probs.(i)) values
 ;;
 
-let print_f d = (* A function that prints int dists *)
+let print_i d = (* A function that prints int dists *)
   let { values; probs; _ } = Option.get d.support in
   Array.iteri (fun i x -> Format.printf "%d %f@." x probs.(i)) values
 ;;
