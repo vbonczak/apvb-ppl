@@ -375,7 +375,7 @@ module MH_Single = struct (* Assume all samples return type float. *)
 
   exception ZeroScore
   
-  let sampled_variables:((string * float) list) ref = ref [];;
+  let sampled_variables:((variable * float) list) ref = ref [];;
 
   let sample v d = (* v is a variable, d is a distribution *)
     let rec aux l = match l with

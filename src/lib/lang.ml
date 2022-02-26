@@ -451,6 +451,7 @@ fprintf out "(*Portée en VA dans tout le if false : %s*)\n" (List.fold_left (fu
     let curloc = locopt_of_loc (Hashtbl.find env "Loc") in
     let xloc = add_var_in_table env x curloc in (*Ajout de x dans les variables aléatoires*)
     fprintf out "let %s = sample (\"%s\", (%s)) " x x  (print_loc xloc);
+	(*fprintf out "let %s = sample \"%s\" " x x ;*)
     
     prodcode out env e;
     let v = find_random_variable env x in 
