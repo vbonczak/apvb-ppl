@@ -74,7 +74,7 @@ print d
  
 Plusieurs constructions probabilistes comme \verb|assume| ou \verb|infer| sont supportées, ainsi qu'une fonction d'affichage rapide de résultats \verb|print|.
 On peut modifier le nombre d'échantillons dans plusieurs méthodes d'inférence à l'aide de la commande \lstinline|count << <n>|.
-On change la méthode avec \lstinline{method <nom>}, parmi 
+On change la méthode avec \lstinline|method <nom>|, parmi 
 
 Nous avons opté pour un langage à parser pour pouvoir faire du typage et de l'analyse statique (cependant par manque de temps nous n'avons implémenté que le typage simple, l'analyse statique s'étant révélée chronophage à développer).
 Le typage vérifie que l'on échantillonne bien une distribution par exemple (soit une des valeurs existantes dans le langage comme \verb|bernoulli| ou une distribution issue d'une inférence, introduite par le mot-clé \lstinline{dist}).
@@ -83,13 +83,31 @@ La construction \lstinline{dist} est analogue au \lstinline{let}, et se termine 
 
 La conditionnelle \lstinline{if then else endif} s'assortit de la limite de fin, ce qui permet de spécifier une structure avec une séquence d'instructions dans chaque cas, sans forcément passer par \lstinline{begin...end}
 
+\section{Distributions}
+
+Nous avons créé le type \texttt{'a support} pour les ditributions finies, et le type \texttt{'a dist} pour représenter les distributions. Le type \texttt{support} sontient donc un champ pour les valeurs, un champ pour les probabilités, et un champ pour les probabilités logarithmiques de chaque valeur. Le type \texttt{dist} contient alors un support optionnel, une fonction d'échantillonage, une fonction pour obtenir la densité logarithmique d'une valeur, et une espérance et une variance optionnelles.
+
+Nous avons aussi crée des distributions communes pouvant être appelées directement par l'utilsateur dans le code, telle que la distribution Bernoulli dépendant d'un paramètre \texttt p, et la distribution uniforme sur un segment des réels, dépendant de deux paramètres \texttt a et \texttt b.
+
+\section{Rejection Sampling et Importance Sampling}
+
+Pour la méthode par rejet, nous utilisons l'exception \texttt{Reject}, qui est interpellée lorsque le contenu d'une instruction \texttt{assume} se révèle fausse. Il suffit donc d'éxecuter la fonction \texttt{f} à inférer autant de fois que voulu, en relançant l'éxecution lorsque l'exception Reject est détectée.
+
+Pour la méthode par rejet, les fonctions \texttt f données par l'utilisateur, et ensuite \texttt{factor}, \texttt{observe}, et \texttt{assume}, sont transformées pour aussi prendre en entrée une référence vers un flottant dénommée \texttt{score} (et non un tableau comme dans le cours). Ainsi, en donnant la valeur \texttt{0.} initialement à \texttt{score}, nous pouvons calculer le score de l'éxecution, le mettant à \verb|neg_infinity| (probabilités logarithmiques) par exemple si nous avons une instruction \texttt{assume} dont l'argument est faux.
+
+Pour ces deux méthodes, après avoir exécuté la fonction \texttt{f} autant de fois que nécessaire, nous combinons les valeurs identiques et additionnons leurs scores (qui vaut 1 pour chaque éxecution avec succès dans la méthode par rejet), et divisons par le score total pour obtenir la probabilité de chaque valeur.
+
 \section{Metropolis-Hastings}
 
-L'inférence \emph{MultiSite} et \emph{SingleSite} est appelée   avec respectivement \lstinline{method MetroMulti}  et \lstinline{method MetroSingle}.
+Nous avons implémenté deux versions de la méthode Metropolis-Hastings: l'inférence \emph{Multi-Sites} et l'inférence \emph{Single-Site}, qui sont appelées avec \lstinline{method MetroMulti}  et \lstinline{method MetroSingle} respectivement. Ces deux méthodes permettent de déterminer la distribution d'une fonction \verb|f| à l'aide d'une fonction de score \verb|score| pouvant évaluer les résultats de \verb|f|, et ainsi obtenir un score proportionnel à la distribution souhaitée.
 
+Pour l'inférence \emph{Multi-sites}, nous avons procédé d'une manière similaire à l'inférence \emph{Importance Sampling}, avec après chaque éxecution de la fonction à inférer une analyse du score de l'évaluation actuelle de \verb|f| et du score de l'évaluation précédente. Le résultat à garder est donc déterminé avec ces scores et avec un flottant choisi aléatoirement entre \verb|0.| et \verb|1.|, comme indiqué dans le cours.
 
-Pendant le parcours du programme en entrée, on ajoute des instructions responsables du traçage des variables aléatoires échantillonnées.
-Afin de gérer les dépendances, les appels à \lstinline{sample} seront accompagnés du nom de la variable, et de la position de celle-ci dans le programme en cas de variables de même nom. La réflexion ainsi introduite sur notre langage permettra au \emph{runtime} Caml de savoir quelles variables rééchantillonner et suivre, dans le cas \emph{SingleSite}.
+Pour l'inférence \emph{Single-site}, le but est de reéxecuter seulement un des échantillonages présents dans la fonction \verb|f| à chaque éxecution, choisi de manière aléatoire et uniforme parmi tous les échantillonages effectués dans \verb|f|. Si nous appelons \verb|x| ce reéchantillonage, alors il est aussi nécessaire de refaire les échantillonages dépendants de \texttt x, et de faire les échantillonages non rencontrés lors de l'éxécution précédente (par exemple le résultat de \texttt x pourrait nous faire changer de branche dans une instruction \verb|if|.
+
+Pour ce faire, si l'utilisateur veut utiliser la méthode Metropolis-Hastings Single-site, les fonctions écrites dans le programme en entrée vont être transformées pour aussi renvoyer la liste des variables échantillonnées lors de l'éxécution, avec leur position précise dans le programme, les échantillonages dépendants de cet échantillonage, et la valeur ainsi échantillonnée. Ainsi, les variables ne sont pas uniquement déterminées par leur nom: il nous faut aussi la trace d'éxecution du code pour connaître sa position précise. Il serait donc possible d'associer à une variable \verb|x| un échantillonage à chaque itération d'une boucle \verb|for|, ou plusieurs fois d'à filée, et nous saurions quelle variable est laquelle et en choisir qu'une seule à reéchantillonner. Malheureusement, nous n'avons pas eu le temps de perfectionner ce système: les échantillonages dans les boucles \verb|for| ne fonctionnent pas et associer un nouveau échantillonage à une même variable n'est pas possible. Lors de l'éxecution de la fonction, chaque variable ne peut être échantillonner qu'une seule fois.
+
+Néanmoins, lors de l'inférence, à chaque éxécution nous pouvons utiliser la liste de sortie pour choisir un des échantillonages aléatoirement pour pouvoir le reéchantilloner, ainsi que ces dépendances, lors de la prochaine exécution. Nous gardons la liste des variables connues en variable globale, et après avoir choisi la variable \verb|x| à reéchantillonner, nous enlevons \verb|x| et les échantillonages dépendant de x de cette liste. Ainsi, la fonction \verb|sample| est modifiée pour d'abord regarder si la variable en question est présente dans la liste, et si elle l'est, elle utilise la valeur indiquée dans la liste, sinon elle échantillonne avec la fonction \verb|sample| associée à la distribution donnée. Cette liste est donc vide initialement, pour que toutes les variables soient échantillonnées lors de la première exécution.
 
 Par exemple :
 
