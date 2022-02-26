@@ -33,12 +33,11 @@ let module_of_infer_method = function
 |s -> ignore (failwith ("valeur "^s^" invalide ici")); ""
 ;;
 
-let snippet_print_gen t s =
-  match t with
-  |Distrib -> sprintf "let { values; probs; _ } = Option.get %s.support in
-Array.iteri (fun i x -> Format.printf \"%%s %%f@.\" (to_string x) probs.(i)) values;" s
-  |Text -> sprintf "Format.printf \"%s\"" s
-;;
+
+(*Si on ne connaît pas la dist, son suffixe va nous informer*)
+let dist_type d = 
+if ends_with ~suffix:"_f" d then  "float" else "int";;
+
 
 (*MetroSingle*)
 type location = LDecl of int(* Which declaration in a sequence of instructions without for or if *)
@@ -47,17 +46,11 @@ type location = LDecl of int(* Which declaration in a sequence of instructions w
   (* Describes where a variable is located in the code so as to distinguish different 
   instructions of the form "let x = sample ..." *)
 
-let rec loc_pushback loc (*toloc*) = function 
-| LDecl _ -> loc
-| LIf(b, l) -> LIf(b, loc_pushback loc l)
-| LFor(n, l) -> LFor(n, loc_pushback loc l)
-;;
-
 type vartype =
 | SetMetroComp of (float->float->bool) (* fonction de comparaison pour Métropolis *)
 | IntSetting of int (*ce type est redondant *)
 | OtherSetting of string 
-| Distribution (* Une distribution introduite par dist *)
+| Distribution of string (* Une distribution introduite par dist, "float" ou "int" *)
 (* à étoffer pour vérifier plus de choses de notre côté *)
 (*Spécialités pour MétroSingle*)
 | VarInfo of location * string list (*Location ci dessus et liste de variables qui en dépendent*)
@@ -65,9 +58,45 @@ type vartype =
 | Loc of location option (*Notre emplacement actuel, none = toplevel*)
 | DistAlias of string
 ;;
- 
+
+
+(*Retourne si on a affaire à une float dist ou une int dist*)
+let dist_type_from_env env d = match Hashtbl.find_opt env d with
+|None -> dist_type d
+|Some (Distribution typ) -> typ
+|_ -> "int"
+;;
+
+let snippet_print_gen env t s =
+  match t with
+  |Distrib   -> sprintf "%s %s " (if dist_type_from_env env s = "float" then  "print_f " else "print_i ") s
+  |Text -> sprintf "Format.printf \"%s\"" s
+;;
+
+let rec loc_pushback loc (*toloc*) = function 
+| LDecl _ -> loc
+| LIf(b, l) -> LIf(b, loc_pushback loc l)
+| LFor(n, l) -> LFor(n, loc_pushback loc l)
+;;
 
 let builtin_dists = ["bernoulli";"normal";"uniform";"binomial";"bernoulli_f"; "uniform_int"];;
+ 
+let rec get_type_in_expr env = function
+| App (f, v) ->   let t = get_type_in_expr env f in if t = "" then get_type_in_expr env v else t
+| Var d ->  
+ begin
+	match Hashtbl.find_opt env d with
+	| Some (Distribution typ) -> typ	
+	| _ -> dist_type d
+ end
+| Proba(_, e) ->  get_type_in_expr env e 
+|Paren e ->  get_type_in_expr env e 
+| _ -> ""
+;;
+ 
+ 
+	
+
 
 let list_of_scope = function | Scope l -> l | _ -> [] ;;
 let locopt_of_loc = function | Loc l -> l | _ -> None ;;
@@ -79,7 +108,7 @@ let vartype_VarInfo_deps = function | VarInfo(_,d)->d | _ ->
 
 let dist_in_env env name = 
   match Hashtbl.find_opt env name with
-  |Some x -> (match x with Distribution -> true | _ -> false)
+  |Some x -> (match x with Distribution(_) -> true | _ -> false)
   |None -> ignore (failwith ("La distribution "^name^" est introuvable.")); false
 ;;
 
@@ -257,7 +286,7 @@ let precompile (e:expr) out  =
                   print out "\ndone;\n";
   |Assign(d, e) -> manage_assign out env d e
   |Dist(s, e) -> fprintf out "let %s = " s; 
-                      Hashtbl.add env s Distribution; (* Le type de s est distribution *)
+                      Hashtbl.add env s (Distribution (get_type_in_expr env e)); (* Le type de s est distribution *)
                       prodcode out env  e; print out " in\n"
   |String(s) -> fprintf out "\"%s\"" s
   |Proba(p, e) ->  gen_prob_cstr e env p 
@@ -266,7 +295,7 @@ let precompile (e:expr) out  =
                  |_ -> print_ret out);prodcode out env  e2
   |Observe(e1, e2) -> print out "observe ";prodcode out env  e1; print out "  "; prodcode out env  e2; print out " "
   |Method(m) -> fprintf out "open %s\n"  (module_of_infer_method m); Hashtbl.add env "Method" (OtherSetting m)
-  |Print(t, s) ->  print out @@ (snippet_print_gen t s) ^ "\n"
+  |Print(t, s) ->  print out @@ (snippet_print_gen env t s) ^ "\n"
   |Nop -> ()
 
 
